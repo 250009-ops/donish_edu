@@ -1,0 +1,25 @@
+{
+  "name": "donish-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend API for Donish English→Uzbek learning app (auth, materials, vocab, translation).",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0",
+    "axios": "^1.7.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
