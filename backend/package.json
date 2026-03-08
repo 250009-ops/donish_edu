@@ -2,6 +2,7 @@
   "name": "donish-backend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Backend API for Donish English→Uzbek learning app (auth, materials, vocab, translation).",
   "main": "src/server.js",
   "scripts": {
