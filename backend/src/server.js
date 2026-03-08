@@ -18,6 +18,14 @@ app.use(
 );
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.json({
+    service: "donish-backend",
+    message: "Donish API. Use /health for status.",
+    endpoints: ["/health", "/auth", "/bot", "/materials", "/vocab", "/translate"]
+  });
+});
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "donish-backend" });
 });
