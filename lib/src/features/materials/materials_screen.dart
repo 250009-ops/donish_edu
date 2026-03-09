@@ -3,8 +3,44 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'material_reader_screen.dart';
 
-class MaterialsScreen extends StatelessWidget {
+const Color _kFilterHighlight = Color(0xFFF59E0B);
+
+const List<String> _typeOptions = [
+  'All Types',
+  'Articles',
+  'Stories',
+  'Books',
+];
+const List<String> _levelOptions = [
+  'All Levels',
+  'Beginner',
+  'Intermediate',
+  'Advanced',
+];
+
+typedef ReadingMaterial = ({String title, String level, String type});
+
+const List<ReadingMaterial> _materials = [
+  (title: 'Tech Innovations 2026', level: 'Intermediate', type: 'Article'),
+  (title: 'Climate Change Today', level: 'Advanced', type: 'Article'),
+  (title: 'Space Exploration', level: 'Advanced', type: 'Article'),
+  (title: 'Healthy Living Tips', level: 'Beginner', type: 'Article'),
+  (title: 'The Lost Key', level: 'Beginner', type: 'Short Story'),
+  (title: 'The Garden Mystery', level: 'Beginner', type: 'Short Story'),
+  (title: 'Midnight Adventure', level: 'Intermediate', type: 'Short Story'),
+  (title: 'The Digital Age', level: 'Advanced', type: 'Book'),
+];
+
+class MaterialsScreen extends StatefulWidget {
   const MaterialsScreen({super.key});
+
+  @override
+  State<MaterialsScreen> createState() => _MaterialsScreenState();
+}
+
+class _MaterialsScreenState extends State<MaterialsScreen> {
+  String _selectedType = _typeOptions.first;
+  String _selectedLevel = _levelOptions.first;
 
   @override
   Widget build(BuildContext context) {
@@ -12,15 +48,21 @@ class MaterialsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF5F6FA),
       body: Column(
         children: [
-          _Header(),
+          _SearchAndFilters(
+            selectedType: _selectedType,
+            selectedLevel: _selectedLevel,
+            onTypeChanged: (v) => setState(() => _selectedType = v!),
+            onLevelChanged: (v) => setState(() => _selectedLevel = v!),
+          ),
           Expanded(
-            child: ListView(
+            child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              children: const [
-                _MaterialsRow(),
-                SizedBox(height: 16),
-                _MaterialsRow(),
-              ],
+              itemCount: _materials.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final material = _materials[index];
+                return _MaterialCard(material: material);
+              },
             ),
           ),
         ],
@@ -29,55 +71,34 @@ class MaterialsScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
+/// Search bar and Type/Level filter buttons with dropdowns (Figma).
+class _SearchAndFilters extends StatelessWidget {
+  const _SearchAndFilters({
+    required this.selectedType,
+    required this.selectedLevel,
+    required this.onTypeChanged,
+    required this.onLevelChanged,
+  });
+
+  final String selectedType;
+  final String selectedLevel;
+  final void Function(String?) onTypeChanged;
+  final void Function(String?) onLevelChanged;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF4C6FFF),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(24),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Materials',
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '8 items',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
           TextField(
             decoration: InputDecoration(
               hintText: 'Search materials...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
               filled: true,
               fillColor: Colors.white,
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderSide: BorderSide.none,
                 borderRadius: BorderRadius.circular(999),
@@ -87,9 +108,21 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _FilterChip(label: 'Type', icon: Icons.tune_rounded),
+              _MaterialsFilterDropdown(
+                label: 'Type',
+                icon: Icons.tune_rounded,
+                options: _typeOptions,
+                value: selectedType,
+                onChanged: onTypeChanged,
+              ),
               const SizedBox(width: 8),
-              _FilterChip(label: 'Level', icon: Icons.filter_alt_outlined),
+              _MaterialsFilterDropdown(
+                label: 'Level',
+                icon: Icons.filter_alt_outlined,
+                options: _levelOptions,
+                value: selectedLevel,
+                onChanged: onLevelChanged,
+              ),
             ],
           ),
         ],
@@ -98,60 +131,165 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.icon});
+/// Filter button that opens a Figma-style dropdown: white panel, shadow;
+/// "All X" selected = bullet + black text; specific option selected = orange pill + white text.
+class _MaterialsFilterDropdown extends StatefulWidget {
+  const _MaterialsFilterDropdown({
+    required this.label,
+    required this.icon,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
 
   final String label;
   final IconData icon;
+  final List<String> options;
+  final String value;
+  final void Function(String?) onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF4B5563)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xFF4B5563),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<_MaterialsFilterDropdown> createState() =>
+      _MaterialsFilterDropdownState();
 }
 
-class _MaterialsRow extends StatelessWidget {
-  const _MaterialsRow();
+class _MaterialsFilterDropdownState extends State<_MaterialsFilterDropdown> {
+  final GlobalKey _triggerKey = GlobalKey();
+
+  void _openMenu() async {
+    final box = _triggerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset.zero);
+    const itemHeight = 44.0;
+    final menuWidth = 200.0;
+    final menuHeight = widget.options.length * itemHeight;
+    final top = offset.dy + box.size.height + 4;
+    final left = offset.dx;
+    final right = left + menuWidth;
+    final bottom = top + menuHeight;
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(left, top, right, bottom),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      color: Colors.white,
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.12),
+      items: widget.options.map((option) {
+        final isSelected = widget.value == option;
+        return PopupMenuItem<String>(
+          value: option,
+          height: itemHeight,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: menuWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: isSelected
+                        ? Center(
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF111827),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  Expanded(
+                    child: Text(
+                      option,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+    if (selected != null) widget.onChanged(selected);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 190,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          return const _MaterialCard();
-        },
+    return GestureDetector(
+      key: _triggerKey,
+      onTap: _openMenu,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF4C6FFF),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: 18, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(
+              widget.label,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                color: Colors.white, size: 20),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _MaterialCard extends StatelessWidget {
-  const _MaterialCard();
+  const _MaterialCard({required this.material});
+
+  final ReadingMaterial material;
+
+  Color _levelColor(String level) {
+    switch (level) {
+      case 'Beginner':
+        return const Color(0xFF16A34A);
+      case 'Intermediate':
+        return const Color(0xFFF97316);
+      case 'Advanced':
+        return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFF4B5563);
+    }
+  }
+
+  Color _levelBackground(String level) {
+    switch (level) {
+      case 'Beginner':
+        return const Color(0xFFE5F9ED);
+      case 'Intermediate':
+        return const Color(0xFFFFF4E5);
+      case 'Advanced':
+        return const Color(0xFFFEE2E2);
+      default:
+        return const Color(0xFFE5E7EB);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,17 +297,16 @@ class _MaterialCard extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => const MaterialReaderScreen(
-              materialTitle: 'Tech Innovations 2026',
+            builder: (_) => MaterialReaderScreen(
+              materialTitle: material.title,
             ),
           ),
         );
       },
       child: Container(
-        width: 140,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
           color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -178,109 +315,79 @@ class _MaterialCard extends StatelessWidget {
             ),
           ],
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Row(
           children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF111827),
-                          Color(0xFF1F2937),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade500,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.local_fire_department,
-                              color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Advanced',
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFF1F2),
+                border: Border.all(
+                  color: const Color(0xFFFB7185),
+                  width: 1.6,
+                ),
+              ),
+              child: const Icon(
+                Icons.insert_drive_file_rounded,
+                size: 20,
+                color: Color(0xFFFB7185),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tech Innovations 2026',
+                    material.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF111827),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _levelBackground(material.level),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          material.level,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _levelColor(material.level),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0EAFF),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          'Article',
+                          material.type,
                           style: GoogleFonts.inter(
-                            fontSize: 10,
-                            color: const Color(0xFF4C6FFF),
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
+                            color: const Color(0xFF4C6FFF),
                           ),
-                        ),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.schedule, size: 14, color: Colors.grey),
-                      const SizedBox(width: 2),
-                      Text(
-                        '5m',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.star,
-                          size: 14, color: Color(0xFFFFB648)),
-                      const SizedBox(width: 2),
-                      Text(
-                        '4.7',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: Colors.grey.shade800,
                         ),
                       ),
                     ],

@@ -4,8 +4,44 @@ import 'package:google_fonts/google_fonts.dart';
 import 'flashcards_screen.dart';
 import 'quiz_screen.dart';
 
-class VocabScreen extends StatelessWidget {
+const List<String> _wordFormOptions = [
+  'All',
+  'Noun',
+  'Verb',
+  'Adjective',
+  'Adverb',
+  'Pronoun',
+];
+
+const Color _kFilterHighlight = Color(0xFFF59E0B);
+
+class VocabScreen extends StatefulWidget {
   const VocabScreen({super.key});
+
+  @override
+  State<VocabScreen> createState() => _VocabScreenState();
+}
+
+typedef VocabWord = ({String english, String uzbek, String tag, double progress});
+
+class _VocabScreenState extends State<VocabScreen> {
+  String _wordFormFilter = _wordFormOptions.first;
+
+  static const List<VocabWord> _allWords = [
+    (english: 'Beautiful', uzbek: 'Chiroyli', tag: 'Adjective', progress: 0.85),
+    (english: 'School', uzbek: 'Maktab', tag: 'Noun', progress: 1.0),
+    (english: 'Book', uzbek: 'Kitob', tag: 'Noun', progress: 0.9),
+    (english: 'Run', uzbek: 'Yugurmoq', tag: 'Verb', progress: 0.6),
+    (english: 'Quickly', uzbek: 'Tez', tag: 'Adverb', progress: 0.75),
+    (english: 'He', uzbek: 'U', tag: 'Pronoun', progress: 1.0),
+    (english: 'Happy', uzbek: 'Baxtli', tag: 'Adjective', progress: 0.8),
+    (english: 'Read', uzbek: 'O\'qimoq', tag: 'Verb', progress: 0.7),
+  ];
+
+  List<VocabWord> get _filteredWords {
+    if (_wordFormFilter == 'All') return _allWords;
+    return _allWords.where((w) => w.tag == _wordFormFilter).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,14 +50,18 @@ class VocabScreen extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
-          children: const [
-            _StatsCard(),
-            SizedBox(height: 16),
-            _SearchBar(),
-            SizedBox(height: 16),
-            _PracticeRow(),
-            SizedBox(height: 20),
-            _WordsSection(),
+          children: [
+            const _StatsCard(),
+            const SizedBox(height: 16),
+            const _SearchBar(),
+            const SizedBox(height: 16),
+            const _PracticeRow(),
+            const SizedBox(height: 20),
+            _WordsSection(
+              wordFormFilter: _wordFormFilter,
+              onFilterChanged: (v) => setState(() => _wordFormFilter = v!),
+              words: _filteredWords,
+            ),
           ],
         ),
       ),
@@ -262,7 +302,15 @@ class _PracticeCard extends StatelessWidget {
 }
 
 class _WordsSection extends StatelessWidget {
-  const _WordsSection();
+  const _WordsSection({
+    required this.wordFormFilter,
+    required this.onFilterChanged,
+    required this.words,
+  });
+
+  final String wordFormFilter;
+  final void Function(String?) onFilterChanged;
+  final List<VocabWord> words;
 
   @override
   Widget build(BuildContext context) {
@@ -280,28 +328,255 @@ class _WordsSection extends StatelessWidget {
                 color: const Color(0xFF111827),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.filter_list_rounded),
-              color: const Color(0xFF6B7280),
-              onPressed: () {},
+            _FilterButton(
+              currentValue: wordFormFilter,
+              options: _wordFormOptions,
+              onChanged: onFilterChanged,
             ),
           ],
         ),
         const SizedBox(height: 8),
-        const _WordCard(
-          english: 'Beautiful',
-          uzbek: 'Chiroyli',
-          tag: 'Adjective',
-          progress: 0.85,
+        if (words.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'No words in this category',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          )
+        else
+          ...words.asMap().entries.map((e) {
+            final i = e.key;
+            final w = e.value;
+            return Padding(
+              padding: EdgeInsets.only(bottom: i < words.length - 1 ? 12 : 0),
+              child: _WordCard(
+                english: w.english,
+                uzbek: w.uzbek,
+                tag: w.tag,
+                progress: w.progress,
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+/// Filter button with dropdown: white card, checkmark for selected, orange for hover (per image).
+/// Dropdown overlay for vocab filter: white card, checkmark for selected, orange for hover.
+class _VocabFilterOverlay extends StatefulWidget {
+  const _VocabFilterOverlay({
+    required this.left,
+    required this.top,
+    required this.menuWidth,
+    required this.itemHeight,
+    required this.options,
+    required this.currentValue,
+    required this.onSelected,
+    required this.onDismiss,
+  });
+
+  final double left;
+  final double top;
+  final double menuWidth;
+  final double itemHeight;
+  final List<String> options;
+  final String currentValue;
+  final void Function(String) onSelected;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_VocabFilterOverlay> createState() => _VocabFilterOverlayState();
+}
+
+class _VocabFilterOverlayState extends State<_VocabFilterOverlay> {
+  int _hoveredIndex = -1;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: widget.onDismiss,
+          behavior: HitTestBehavior.opaque,
+          child: const SizedBox.expand(),
         ),
-        const SizedBox(height: 12),
-        const _WordCard(
-          english: 'School',
-          uzbek: 'Maktab',
-          tag: 'Noun',
-          progress: 1.0,
+        Positioned(
+          left: widget.left,
+          top: widget.top,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: widget.menuWidth,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(widget.options.length, (i) {
+                  final option = widget.options[i];
+                  final isSelected = widget.currentValue == option;
+                  final isHovered = _hoveredIndex == i;
+                  return MouseRegion(
+                    onEnter: (_) => setState(() => _hoveredIndex = i),
+                    onExit: (_) => setState(() => _hoveredIndex = -1),
+                    child: Material(
+                      color: isHovered ? _kFilterHighlight : Colors.transparent,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(i == 0 ? 12 : 0),
+                        bottom: Radius.circular(
+                            i == widget.options.length - 1 ? 12 : 0),
+                      ),
+                      child: InkWell(
+                        onTap: () => widget.onSelected(option),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(i == 0 ? 12 : 0),
+                          bottom: Radius.circular(
+                              i == widget.options.length - 1 ? 12 : 0),
+                        ),
+                        child: SizedBox(
+                          height: widget.itemHeight,
+                          width: double.infinity,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  child: isSelected
+                                      ? Icon(
+                                          Icons.check_rounded,
+                                          size: 20,
+                                          color: isHovered
+                                              ? Colors.white
+                                              : const Color(0xFF111827),
+                                        )
+                                      : null,
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    option,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isHovered
+                                          ? Colors.white
+                                          : const Color(0xFF111827),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _FilterButton extends StatefulWidget {
+  const _FilterButton({
+    required this.currentValue,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String currentValue;
+  final List<String> options;
+  final void Function(String?) onChanged;
+
+  @override
+  State<_FilterButton> createState() => _FilterButtonState();
+}
+
+class _FilterButtonState extends State<_FilterButton> {
+  final GlobalKey _key = GlobalKey();
+
+  void _openMenu() async {
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset.zero);
+    const itemHeight = 44.0;
+    const menuWidth = 180.0;
+    final top = offset.dy + box.size.height + 4;
+    final left = offset.dx + box.size.width - menuWidth;
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final clampedLeft = left.clamp(12.0, screenWidth - menuWidth - 12);
+
+    final selected = await showDialog<String>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => _VocabFilterOverlay(
+        left: clampedLeft,
+        top: top,
+        menuWidth: menuWidth,
+        itemHeight: itemHeight,
+        options: widget.options,
+        currentValue: widget.currentValue,
+        onSelected: (v) => Navigator.of(ctx).pop(v),
+        onDismiss: () => Navigator.of(ctx).pop(),
+      ),
+    );
+
+    if (selected != null) widget.onChanged(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: _key,
+        onTap: _openMenu,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.filter_list_rounded,
+                size: 20,
+                color: const Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Filter',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,11 +1,16 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
 import axios from "axios";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const apiBaseUrl = process.env.API_BASE_URL || "http://localhost:4000";
+const apiBaseUrl =
+  process.env.API_BASE_URL ||
+  "https://donish-edu.vercel.app";
 
 if (!botToken) {
   // eslint-disable-next-line no-console
@@ -20,7 +25,6 @@ const state = new Map();
 
 const STATES = {
   IDLE: "idle",
-  AWAITING_USERNAME: "awaiting_username",
   AWAITING_PASSWORD: "awaiting_password"
 };
 
@@ -33,84 +37,77 @@ function getState(chatId) {
 }
 
 bot.start(async (ctx) => {
-  const chatId = ctx.chat.id;
-  setState(chatId, STATES.AWAITING_USERNAME, {});
+  try {
+    const chatId = ctx.chat.id;
+    setState(chatId, STATES.AWAITING_PASSWORD, {});
 
-  await ctx.reply(
-    "Welcome to Donish!\n\nLet's create your account.\n\nPlease send the username you want to use in the Donish app."
-  );
+    await ctx.reply(
+      "Welcome to Donish!\n\nTo use the Donish app, set a password. Send the password you'll use to sign in (you'll sign in with your ID and this password in the app)."
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("bot.start error:", err);
+  }
 });
 
 bot.on("text", async (ctx) => {
-  const chatId = ctx.chat.id;
-  const message = ctx.message.text.trim();
-  const current = getState(chatId);
+  try {
+    const chatId = ctx.chat.id;
+    const message = ctx.message?.text?.trim() ?? "";
+    const current = getState(chatId);
 
-  if (current.step === STATES.AWAITING_USERNAME) {
-    // Check username availability with backend.
-    try {
-      const checkRes = await axios.post(
-        `${apiBaseUrl}/bot/check-username`,
-        { username: message }
-      );
+    if (current.step === STATES.AWAITING_PASSWORD) {
+      const password = message;
 
-      if (!checkRes.data.available) {
-        await ctx.reply(
-          "Sorry, that username is already taken. Please send a different username."
+      try {
+        const createRes = await axios.post(
+          `${apiBaseUrl}/bot/create-user`,
+          { telegram_id: chatId, password },
+          { timeout: 15000, headers: { "Content-Type": "application/json" } }
         );
+
+        const telegramId = createRes.data?.telegram_id ?? chatId;
+        await ctx.reply(
+          `Your Donish account is ready!\n\nYour ID is: ${telegramId}\n\nUse this ID and your password to sign in to the Donish app. Keep your ID private.`
+        );
+        setState(chatId, STATES.IDLE, {});
+        return;
+      } catch (error) {
+        const status = error?.response?.status;
+        const msg = error?.response?.data?.error;
+        // eslint-disable-next-line no-console
+        console.error("create-user error:", error?.response?.data || error.message);
+        if (status === 409) {
+          await ctx.reply(
+            "You already have an account. Use your ID and password to sign in to the Donish app."
+          );
+        } else {
+          await ctx.reply(
+            msg || "I could not create your account. Please try again later."
+          );
+        }
+        setState(chatId, STATES.IDLE, {});
         return;
       }
-
-      setState(chatId, STATES.AWAITING_PASSWORD, { username: message });
-      await ctx.reply(
-        `Great, "${message}" is available.\n\nNow send a password you will use to sign in to the Donish app.`
-      );
-      return;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("check-username error:", error?.response?.data || error);
-      await ctx.reply(
-        "I could not verify that username right now. Please try again later."
-      );
-      setState(chatId, STATES.IDLE, {});
-      return;
     }
-  }
 
-  if (current.step === STATES.AWAITING_PASSWORD) {
-    const username = current.data.username;
-    const password = message;
-
+    await ctx.reply(
+      "To create or manage your Donish account, please send /start."
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("bot text handler error:", err);
     try {
-      await axios.post(`${apiBaseUrl}/bot/create-user`, {
-        telegram_id: chatId,
-        username,
-        password
-      });
-
-      await ctx.reply(
-        `Your Donish account is ready!\n\nUsername: ${username}\nPassword: (hidden)\n\nOpen the Donish app and sign in with this username and password.`
-      );
-      setState(chatId, STATES.IDLE, {});
-      return;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("create-user error:", error?.response?.data || error);
-      await ctx.reply(
-        "I could not create your account due to a server error. Please try again later."
-      );
-      setState(chatId, STATES.IDLE, {});
-      return;
-    }
+      await ctx.reply("Something went wrong. Please try /start again.");
+    } catch (_) {}
   }
-
-  // Default: ask user to run /start to begin.
-  await ctx.reply(
-    "To create or manage your Donish account, please send /start."
-  );
 });
 
 // eslint-disable-next-line no-console
-console.log("Donish Telegram bot is starting...");
-bot.launch();
+console.log("Donish Telegram bot is starting... (API:", apiBaseUrl, ")");
+bot.launch().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error("Bot launch failed:", err);
+  process.exit(1);
+});
 

@@ -7,16 +7,17 @@ import { config } from "../config.js";
 export const authRouter = express.Router();
 
 authRouter.post("/login", async (req, res) => {
-  const { username, password } = req.body || {};
+  const { id, password } = req.body || {};
+  const telegramId = id !== undefined && id !== null ? Number(id) : NaN;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username and password are required." });
+  if (!Number.isInteger(telegramId) || !password) {
+    return res.status(400).json({ error: "ID and password are required." });
   }
 
   const { data: users, error } = await supabaseAdmin
     .from("users")
     .select("*")
-    .eq("username", username)
+    .eq("telegram_id", telegramId)
     .limit(1);
 
   if (error) {
@@ -36,7 +37,7 @@ authRouter.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign(
-    { sub: user.id, username: user.username },
+    { sub: user.id, telegram_id: user.telegram_id },
     config.jwtSecret,
     { expiresIn: config.jwtExpiresIn }
   );
@@ -45,7 +46,7 @@ authRouter.post("/login", async (req, res) => {
     token,
     user: {
       id: user.id,
-      username: user.username
+      telegram_id: user.telegram_id
     }
   });
 });

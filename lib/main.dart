@@ -58,7 +58,9 @@ class _RootDeciderState extends State<_RootDecider> {
     if (!_isAuthenticated) {
       return LoginScreen(onAuthenticated: _onAuthenticated);
     }
-    return const AppShell();
+    return AppShell(
+      onLogOut: () => setState(() => _isAuthenticated = false),
+    );
   }
 }
 

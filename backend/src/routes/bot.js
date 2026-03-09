@@ -4,38 +4,30 @@ import { supabaseAdmin } from "../supabaseClient.js";
 
 export const botRouter = express.Router();
 
-botRouter.post("/check-username", async (req, res) => {
-  const { username } = req.body || {};
-
-  if (!username) {
-    return res.status(400).json({ available: false, reason: "username_required" });
-  }
-
-  const { count, error } = await supabaseAdmin
-    .from("users")
-    .select("*", { count: "exact", head: true })
-    .eq("username", username);
-
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error("check-username error:", error);
-    return res.status(500).json({ available: false, reason: "db_error" });
-  }
-
-  return res.json({ available: (count || 0) === 0 });
-});
-
 botRouter.post("/create-user", async (req, res) => {
-  const { telegram_id, username, password } = req.body || {};
+  const { telegram_id, password } = req.body || {};
+  const tid = telegram_id !== undefined && telegram_id !== null ? Number(telegram_id) : NaN;
 
-  if (!telegram_id || !username || !password) {
-    return res.status(400).json({ error: "telegram_id, username and password are required." });
+  if (!Number.isInteger(tid) || !password) {
+    return res.status(400).json({ error: "telegram_id and password are required." });
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("telegram_id", tid)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return res.status(409).json({ error: "Already registered. Use the Donish app to sign in." });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const username = String(tid);
 
   const { data, error } = await supabaseAdmin.from("users").insert({
-    telegram_id,
+    telegram_id: tid,
     username,
     password_hash: passwordHash
   }).select("*").single();
@@ -48,7 +40,7 @@ botRouter.post("/create-user", async (req, res) => {
 
   return res.status(201).json({
     id: data.id,
-    username: data.username
+    telegram_id: data.telegram_id
   });
 });
 

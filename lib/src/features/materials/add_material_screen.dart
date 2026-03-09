@@ -6,6 +6,9 @@ import '../../core/network/api_client.dart';
 
 const Color _kViolet = Color(0xFF4C6FFF);
 
+/// Figma: yellowish-orange highlight for selected dropdown option.
+const Color _kSelectHighlight = Color(0xFFF59E0B);
+
 class AddMaterialScreen extends StatefulWidget {
   const AddMaterialScreen({
     super.key,
@@ -40,9 +43,9 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
 
   static const List<String> _typeOptions = [
     'Article',
+    'Short Story',
     'Book',
-    'Short story',
-    'Essay',
+    'Document',
     'Other',
   ];
 
@@ -88,14 +91,22 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    final nameFromFile =
+        file.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
     setState(() {
       _fileName = file.name;
       _filePath = file.path;
+      _nameController.text = nameFromFile;
     });
-    if (_nameController.text.isEmpty) {
-      _nameController.text =
-          file.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-    }
+    _notifyFormChanged();
+  }
+
+  void _clearFile() {
+    setState(() {
+      _fileName = null;
+      _filePath = null;
+      _nameController.clear();
+    });
     _notifyFormChanged();
   }
 
@@ -136,113 +147,64 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          _GradientHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PdfUploadZone(
-                    fileName: _fileName,
-                    onPickFile: _pickFile,
-                  ),
-                  const SizedBox(height: 20),
-                  _Label('Material Name *'),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      hintText: 'e.g., The Great Gatsby',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                    style: GoogleFonts.inter(),
-                  ),
-                  const SizedBox(height: 4),
-                  _HelperText(
-                      'Give your material a descriptive name'),
-                  const SizedBox(height: 16),
-                  _Label('Type *'),
-                  _DropdownField<String>(
-                    value: _selectedType,
-                    hint: 'Select material type',
-                    items: _typeOptions,
-                    onChanged: (v) {
-                      setState(() => _selectedType = v);
-                      _notifyFormChanged();
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  _HelperText(
-                      'Choose the type that best describes your material'),
-                  const SizedBox(height: 16),
-                  _Label('English Level *'),
-                  _DropdownField<String>(
-                    value: _selectedLevel,
-                    hint: 'Select difficulty level',
-                    items: _levelOptions,
-                    onChanged: (v) {
-                      setState(() => _selectedLevel = v);
-                      _notifyFormChanged();
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  _HelperText(
-                      'Select based on CEFR English proficiency levels'),
-                  const SizedBox(height: 24),
-                  _AboutPdfButton(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GradientHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF4C6FFF), Color(0xFF8E54E9)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        bottom: false,
+      backgroundColor: const Color(0xFFF5F6FA),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Add Material',
-              style: GoogleFonts.inter(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+            _PdfUploadZone(
+              fileName: _fileName,
+              onPickFile: _pickFile,
+              onClear: _fileName != null ? _clearFile : null,
+            ),
+            const SizedBox(height: 20),
+            _Label('Material Name *'),
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                hintText: 'e.g., The Great Gatsby',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
+              style: GoogleFonts.inter(),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Upload PDF to your library.',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.white.withOpacity(0.95),
-              ),
+            _HelperText('Give your material a descriptive name'),
+            const SizedBox(height: 16),
+            _Label('Type *'),
+            _FigmaSelectField<String>(
+              value: _selectedType,
+              hint: 'Select material type',
+              items: _typeOptions,
+              onChanged: (v) {
+                setState(() => _selectedType = v);
+                _notifyFormChanged();
+              },
             ),
+            const SizedBox(height: 4),
+            _HelperText('Choose the type that best describes your material'),
+            const SizedBox(height: 16),
+            _Label('English Level *'),
+            _FigmaSelectField<String>(
+              value: _selectedLevel,
+              hint: 'Select difficulty level',
+              items: _levelOptions,
+              onChanged: (v) {
+                setState(() => _selectedLevel = v);
+                _notifyFormChanged();
+              },
+            ),
+            const SizedBox(height: 4),
+            _HelperText(
+                'Select based on CEFR English proficiency levels'),
+            const SizedBox(height: 24),
+            _AboutPdfButton(),
           ],
         ),
       ),
@@ -292,10 +254,12 @@ class _PdfUploadZone extends StatelessWidget {
   const _PdfUploadZone({
     required this.fileName,
     required this.onPickFile,
+    this.onClear,
   });
 
   final String? fileName;
   final VoidCallback onPickFile;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -303,67 +267,102 @@ class _PdfUploadZone extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _Label('PDF File *'),
-        GestureDetector(
-          onTap: onPickFile,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 32),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFE5E7EB),
-                width: 2,
-                strokeAlign: BorderSide.strokeAlignInside,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              onTap: onPickFile,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
+                    width: 2,
+                    strokeAlign: BorderSide.strokeAlignInside,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.upload_file_rounded,
+                      size: 48,
+                      color: _kViolet,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Click to select PDF file',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111827),
+                      ),
+                    ),
+                    if (fileName != null) ...[
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          fileName!,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: const Color(0xFF6B7280),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Supports PDF files up to 50MB.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.upload_file_rounded,
-                  size: 48,
-                  color: _kViolet,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Click to select PDF file',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                if (fileName != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    fileName!,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: const Color(0xFF6B7280),
+            if (onClear != null && fileName != null)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onClear,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: Color(0xFF6B7280),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  'Supports PDF files up to 50MB.',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: const Color(0xFF9CA3AF),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ],
     );
   }
 }
 
-class _DropdownField<T extends String> extends StatelessWidget {
-  const _DropdownField({
+/// Select field matching Figma: white menu, rounded bottom corners,
+/// selected option with yellowish-orange background and white text.
+class _FigmaSelectField<T extends String> extends StatefulWidget {
+  const _FigmaSelectField({
     required this.value,
     required this.hint,
     required this.items,
@@ -376,37 +375,114 @@ class _DropdownField<T extends String> extends StatelessWidget {
   final void Function(T?) onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white,
+  State<_FigmaSelectField<T>> createState() => _FigmaSelectFieldState<T>();
+}
+
+class _FigmaSelectFieldState<T extends String> extends State<_FigmaSelectField<T>> {
+  final GlobalKey _triggerKey = GlobalKey();
+
+  void _openMenu() async {
+    final box = _triggerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final offset = box.localToGlobal(Offset.zero);
+    const itemHeight = 48.0;
+    final menuWidth = box.size.width;
+    final menuHeight = widget.items.length * itemHeight;
+    final top = offset.dy + box.size.height;
+    final left = offset.dx;
+    final right = left + menuWidth;
+    final bottom = top + menuHeight;
+
+    final selected = await showMenu<T>(
+      context: context,
+      position: RelativeRect.fromLTRB(left, top, right, bottom),
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          hint: Text(
-            hint,
-            style: GoogleFonts.inter(
-              color: const Color(0xFF9CA3AF),
-              fontSize: 15,
-            ),
-          ),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF6B7280)),
-          items: items
-              .map((e) => DropdownMenuItem<T>(
-                    value: e,
+      color: Colors.white,
+      elevation: 2,
+      items: widget.items.map((e) {
+        final isSelected = widget.value == e;
+        return PopupMenuItem<T>(
+          value: e,
+          height: itemHeight,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: menuWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: isSelected
+                        ? Center(
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF111827),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  Expanded(
                     child: Text(
                       e,
-                      style: GoogleFonts.inter(fontSize: 15),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: const Color(0xFF111827),
+                      ),
                     ),
-                  ))
-              .toList(),
-          onChanged: onChanged,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+    if (selected != null) widget.onChanged(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: _triggerKey,
+      onTap: _openMenu,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.circular(14),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.value ?? widget.hint,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: widget.value != null
+                      ? const Color(0xFF111827)
+                      : const Color(0xFF9CA3AF),
+                  fontWeight:
+                      widget.value != null ? FontWeight.w500 : FontWeight.w400,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF6B7280),
+              size: 24,
+            ),
+          ],
         ),
       ),
     );
@@ -427,7 +503,7 @@ class _AboutPdfButton extends StatelessWidget {
                 size: 20, color: _kViolet),
             const SizedBox(width: 10),
             Text(
-              'About PDF Material',
+              'About PDF Materials',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

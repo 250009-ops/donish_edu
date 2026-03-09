@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'features/materials/add_material_screen.dart';
 import 'features/materials/materials_screen.dart';
 import 'features/vocab/vocab_screen.dart';
+import 'widgets/donish_top_bar.dart';
 
 /// Amber gradient for default + button (Figma: #F59E0B).
 const Color _kAmber = Color(0xFFF59E0B);
@@ -11,7 +12,9 @@ const Color _kAmber = Color(0xFFF59E0B);
 const Color _kViolet = Color(0xFF4C6FFF);
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.onLogOut});
+
+  final VoidCallback? onLogOut;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -135,15 +138,25 @@ class _AppShellState extends State<AppShell> {
       );
     }
 
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: pages,
+        top: false,
+        child: Column(
+          children: [
+            DonishTopBar(onLogOut: widget.onLogOut),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: pages,
+              ),
+            ),
+          ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: centerButton,
+      floatingActionButton: keyboardVisible ? null : centerButton,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 6,

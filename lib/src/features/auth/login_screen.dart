@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'data/auth_repository.dart';
+import '../../core/config/app_config.dart';
+import '../../core/network/api_client.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onAuthenticated});
@@ -12,21 +17,74 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _idController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authRepository = AuthRepository(ApiClient.instance);
   bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _idController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
-    // Temporary development login: bypass backend and go straight into the app.
-    widget.onAuthenticated();
+    setState(() => _isSubmitting = true);
+    try {
+      await _authRepository.login(
+        id: _idController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      widget.onAuthenticated();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = e.message;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = 'Something went wrong. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _openTelegramBot() async {
+    final uri = Uri.parse(
+      'https://t.me/${AppConfig.telegramBotUsername}',
+    );
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        _showLaunchError(uri.toString());
+      }
+    } catch (_) {
+      if (mounted) _showLaunchError(uri.toString());
+    }
+  }
+
+  void _showLaunchError(String url) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Could not open. Copy and open in browser: $url'),
+      ),
+    );
   }
 
   @override
@@ -70,19 +128,17 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  static const String _logoAsset = 'assets/images/logo.png';
+
   Widget _buildLogoBlock() {
     return Column(
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4C6FFF), Color(0xFF8E54E9)],
-            ),
-          ),
-          child: const Icon(
+        Image.asset(
+          _logoAsset,
+          width: 72,
+          height: 72,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const Icon(
             Icons.menu_book_rounded,
             color: Colors.white,
             size: 32,
@@ -139,19 +195,33 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Use the username and password you created in our Telegram bot.',
+              'Use the ID and password you got from our Telegram bot.',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: const Color(0xFF6B7280),
               ),
             ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             TextFormField(
-              controller: _usernameController,
-              decoration: _inputDecoration('Username'),
+              controller: _idController,
+              decoration: _inputDecoration('ID'),
+              keyboardType: TextInputType.number,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your username';
+                  return 'Please enter your ID';
+                }
+                if (int.tryParse(value.trim()) == null) {
+                  return 'ID must be numbers only';
                 }
                 return null;
               },
@@ -233,9 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   TextButton(
-                    onPressed: () {
-                      // TODO: deep link or instructions to open Telegram bot.
-                    },
+                    onPressed: _openTelegramBot,
                     child: const Text('Open Telegram Bot'),
                   ),
                 ],

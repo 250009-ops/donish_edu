@@ -6,13 +6,18 @@ class AuthRepository {
   final ApiClient _apiClient;
 
   Future<void> login({
-    required String username,
+    required String id,
     required String password,
   }) async {
+    final idNum = int.tryParse(id.trim());
+    if (idNum == null) {
+      throw const AuthException('Please enter a valid ID (numbers only).');
+    }
+
     final json = await _apiClient.postJson(
       '/auth/login',
       body: {
-        'username': username,
+        'id': idNum,
         'password': password,
       },
     );
