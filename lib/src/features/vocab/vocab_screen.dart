@@ -26,6 +26,7 @@ typedef VocabWord = ({String english, String uzbek, String tag, double progress}
 
 class _VocabScreenState extends State<VocabScreen> {
   String _wordFormFilter = _wordFormOptions.first;
+  String _searchQuery = '';
 
   static const List<VocabWord> _allWords = [
     (english: 'Beautiful', uzbek: 'Chiroyli', tag: 'Adjective', progress: 0.85),
@@ -39,8 +40,22 @@ class _VocabScreenState extends State<VocabScreen> {
   ];
 
   List<VocabWord> get _filteredWords {
-    if (_wordFormFilter == 'All') return _allWords;
-    return _allWords.where((w) => w.tag == _wordFormFilter).toList();
+    Iterable<VocabWord> words = _allWords;
+
+    if (_wordFormFilter != _wordFormOptions.first) {
+      words = words.where((w) => w.tag == _wordFormFilter);
+    }
+
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      words = words.where(
+        (w) =>
+            w.english.toLowerCase().contains(query) ||
+            w.uzbek.toLowerCase().contains(query),
+      );
+    }
+
+    return words.toList();
   }
 
   @override
@@ -53,7 +68,10 @@ class _VocabScreenState extends State<VocabScreen> {
           children: [
             const _StatsCard(),
             const SizedBox(height: 16),
-            const _SearchBar(),
+            _SearchBar(
+              onChanged: (value) =>
+                  setState(() => _searchQuery = value),
+            ),
             const SizedBox(height: 16),
             const _PracticeRow(),
             const SizedBox(height: 20),
@@ -197,11 +215,14 @@ class _StatsCard extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+  const _SearchBar({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      onChanged: onChanged,
       decoration: InputDecoration(
         hintText: 'Search words...',
         prefixIcon: const Icon(Icons.search),

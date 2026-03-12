@@ -12,8 +12,10 @@ const Color _kAmber = Color(0xFFF59E0B);
 const Color _kViolet = Color(0xFF4C6FFF);
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.onLogOut});
+  const AppShell({super.key, required this.userId, this.onLogOut});
 
+  /// Currently authenticated user's numeric ID (as string).
+  final String userId;
   final VoidCallback? onLogOut;
 
   @override
@@ -145,7 +147,10 @@ class _AppShellState extends State<AppShell> {
         top: false,
         child: Column(
           children: [
-            DonishTopBar(onLogOut: widget.onLogOut),
+            DonishTopBar(
+              userDisplayName: 'ID ${widget.userId}',
+              onLogOut: widget.onLogOut,
+            ),
             Expanded(
               child: IndexedStack(
                 index: _currentIndex,

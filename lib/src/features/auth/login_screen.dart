@@ -9,7 +9,8 @@ import '../../core/network/api_client.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onAuthenticated});
 
-  final VoidCallback onAuthenticated;
+  /// Called when authentication succeeds with the numeric user ID.
+  final void Function(String userId) onAuthenticated;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (!mounted) return;
-      widget.onAuthenticated();
+      widget.onAuthenticated(_idController.text.trim());
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {

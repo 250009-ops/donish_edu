@@ -47,9 +47,12 @@ class _RootDecider extends StatefulWidget {
 class _RootDeciderState extends State<_RootDecider> {
   bool _isAuthenticated = false;
 
-  void _onAuthenticated() {
+  String? _userId;
+
+  void _onAuthenticated(String userId) {
     setState(() {
       _isAuthenticated = true;
+      _userId = userId;
     });
   }
 
@@ -59,7 +62,11 @@ class _RootDeciderState extends State<_RootDecider> {
       return LoginScreen(onAuthenticated: _onAuthenticated);
     }
     return AppShell(
-      onLogOut: () => setState(() => _isAuthenticated = false),
+      userId: _userId ?? '',
+      onLogOut: () => setState(() {
+        _isAuthenticated = false;
+        _userId = null;
+      }),
     );
   }
 }

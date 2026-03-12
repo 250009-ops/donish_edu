@@ -41,6 +41,39 @@ class MaterialsScreen extends StatefulWidget {
 class _MaterialsScreenState extends State<MaterialsScreen> {
   String _selectedType = _typeOptions.first;
   String _selectedLevel = _levelOptions.first;
+  String _searchQuery = '';
+
+  List<ReadingMaterial> get _filteredMaterials {
+    return _materials.where((material) {
+      final query = _searchQuery.trim().toLowerCase();
+      final matchesSearch = query.isEmpty ||
+          material.title.toLowerCase().contains(query);
+
+      bool matchesType;
+      if (_selectedType == _typeOptions.first) {
+        matchesType = true;
+      } else {
+        switch (_selectedType) {
+          case 'Articles':
+            matchesType = material.type == 'Article';
+            break;
+          case 'Stories':
+            matchesType = material.type == 'Short Story';
+            break;
+          case 'Books':
+            matchesType = material.type == 'Book';
+            break;
+          default:
+            matchesType = true;
+        }
+      }
+
+      final matchesLevel = _selectedLevel == _levelOptions.first ||
+          material.level == _selectedLevel;
+
+      return matchesSearch && matchesType && matchesLevel;
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,14 +86,16 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             selectedLevel: _selectedLevel,
             onTypeChanged: (v) => setState(() => _selectedType = v!),
             onLevelChanged: (v) => setState(() => _selectedLevel = v!),
+            onSearchChanged: (value) =>
+                setState(() => _searchQuery = value),
           ),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _materials.length,
+              itemCount: _filteredMaterials.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final material = _materials[index];
+                final material = _filteredMaterials[index];
                 return _MaterialCard(material: material);
               },
             ),
@@ -78,12 +113,14 @@ class _SearchAndFilters extends StatelessWidget {
     required this.selectedLevel,
     required this.onTypeChanged,
     required this.onLevelChanged,
+    required this.onSearchChanged,
   });
 
   final String selectedType;
   final String selectedLevel;
   final void Function(String?) onTypeChanged;
   final void Function(String?) onLevelChanged;
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +129,7 @@ class _SearchAndFilters extends StatelessWidget {
       child: Column(
         children: [
           TextField(
+            onChanged: onSearchChanged,
             decoration: InputDecoration(
               hintText: 'Search materials...',
               prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
