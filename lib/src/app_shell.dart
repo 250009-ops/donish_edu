@@ -23,6 +23,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final GlobalKey<VocabScreenState> _vocabScreenKey = GlobalKey();
+
   /// 0 = Materials, 1 = Add Material, 2 = Vocabulary
   int _currentIndex = 0;
 
@@ -98,7 +100,7 @@ class _AppShellState extends State<AppShell> {
         onUploadSuccess: _onAddUploadSuccess,
         onRegisterUpload: (cb) => _addMaterialUpload = cb,
       ),
-      const VocabScreen(),
+      VocabScreen(key: _vocabScreenKey),
     ];
 
     final isAddPage = _currentIndex == 1;
@@ -185,7 +187,12 @@ class _AppShellState extends State<AppShell> {
                 icon: Icons.style_rounded,
                 label: 'Vocabulary',
                 isActive: _currentIndex == 2,
-                onTap: () => setState(() => _currentIndex = 2),
+                onTap: () {
+                  setState(() => _currentIndex = 2);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _vocabScreenKey.currentState?.loadVocabulary();
+                  });
+                },
               ),
             ],
           ),

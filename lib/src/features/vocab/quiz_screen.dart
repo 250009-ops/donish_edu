@@ -1,5 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../core/network/api_client.dart';
+import 'data/vocab_repository.dart';
 
 /// Figma quiz colors.
 const Color _kBg = Color(0xFFF9FAFB);
@@ -18,7 +23,14 @@ const Color _kFeedbackCorrectBg = Color(0xFFECFDF5);
 const Color _kFeedbackWrongBg = Color(0xFFFEF2F2);
 
 class QuizScreen extends StatefulWidget {
-  const QuizScreen({super.key});
+  const QuizScreen({
+    super.key,
+    required this.entries,
+    this.vocabRepository,
+  });
+
+  final List<VocabEntry> entries;
+  final VocabRepository? vocabRepository;
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -34,34 +46,66 @@ class _QuizScreenState extends State<QuizScreen>
   int? _selectedIndex;
   _QuizTransitionPhase _phase = _QuizTransitionPhase.idle;
   late AnimationController _transitionController;
+  late final List<_QuizQuestion> _questions;
+  late final VocabRepository _repo;
   static const _transitionDuration = Duration(milliseconds: 280);
 
-  static const List<_QuizQuestion> _questions = [
-    _QuizQuestion(
-      word: 'Chiroyli',
-      correct: 'Beautiful',
-      options: ['Happy', 'Beautiful', 'Fast', 'Strong'],
-    ),
-    _QuizQuestion(
-      word: 'Maktab',
-      correct: 'School',
-      options: ['Hospital', 'School', 'Market', 'Home'],
-    ),
-    _QuizQuestion(
-      word: 'Kitob',
-      correct: 'Book',
-      options: ['Pen', 'Book', 'Table', 'Door'],
-    ),
-    _QuizQuestion(
-      word: 'Do\'st',
-      correct: 'Friend',
-      options: ['Enemy', 'Friend', 'Teacher', 'Student'],
-    ),
-  ];
+  static List<_QuizQuestion> _buildQuestions(List<VocabEntry> entries) {
+    if (entries.isEmpty) return [];
+    final rng = Random();
+    const fallbacks = [
+      'apple',
+      'water',
+      'house',
+      'time',
+      'book',
+      'friend',
+      'school',
+      'city',
+    ];
+
+    List<String> optionsFor(VocabEntry correct) {
+      final opts = <String>{correct.word};
+      final others = entries
+          .where((e) => e.id != correct.id)
+          .map((e) => e.word)
+          .toList()
+        ..shuffle(rng);
+      for (final w in others) {
+        if (opts.length >= 4) break;
+        opts.add(w);
+      }
+      for (final f in fallbacks) {
+        if (opts.length >= 4) break;
+        opts.add(f);
+      }
+      var i = 0;
+      while (opts.length < 4) {
+        i++;
+        opts.add('choice_$i');
+      }
+      final list = opts.toList()..shuffle(rng);
+      return list;
+    }
+
+    return entries
+        .map(
+          (e) => _QuizQuestion(
+            vocabId: e.id,
+            word: e.translationUz,
+            correct: e.word,
+            options: optionsFor(e),
+          ),
+        )
+        .toList()
+      ..shuffle(rng);
+  }
 
   @override
   void initState() {
     super.initState();
+    _repo = widget.vocabRepository ?? VocabRepository(ApiClient.instance);
+    _questions = _buildQuestions(widget.entries);
     _transitionController = AnimationController(
       vsync: this,
       duration: _transitionDuration,
@@ -97,11 +141,16 @@ class _QuizScreenState extends State<QuizScreen>
 
   void _onSelect(int index) {
     if (_answered) return;
+    final q = _questions[_currentIndex];
+    final correct = q.options[index] == q.correct;
+    final action = correct ? 'quiz_correct' : 'quiz_incorrect';
+    _repo
+        .recordPractice(vocabId: q.vocabId, action: action)
+        .catchError((Object _) {});
     setState(() {
       _answered = true;
       _selectedIndex = index;
-      final q = _questions[_currentIndex];
-      if (q.options[index] == q.correct) _score++;
+      if (correct) _score++;
     });
   }
 
@@ -132,6 +181,41 @@ class _QuizScreenState extends State<QuizScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_questions.isEmpty) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        appBar: AppBar(
+          backgroundColor: _kBg,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            color: _kTextDark,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Quiz',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              color: _kTextDark,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No words saved today. Add words from a material first.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: _kTextMuted,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final n = _currentIndex + 1;
     final total = _questions.length;
     final q = _questions[_currentIndex];
@@ -527,11 +611,13 @@ class _FeedbackBar extends StatelessWidget {
 
 class _QuizQuestion {
   const _QuizQuestion({
+    required this.vocabId,
     required this.word,
     required this.correct,
     required this.options,
   });
 
+  final String vocabId;
   final String word;
   final String correct;
   final List<String> options;

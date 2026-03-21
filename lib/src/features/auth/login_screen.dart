@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authRepository = AuthRepository(ApiClient.instance);
   bool _isSubmitting = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -230,8 +231,21 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _passwordController,
-              decoration: _inputDecoration('Password'),
-              obscureText: true,
+              decoration: _inputDecoration('Password').copyWith(
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+              obscureText: _obscurePassword,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your password';

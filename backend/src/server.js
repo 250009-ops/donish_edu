@@ -29,6 +29,7 @@ app.get("/", (req, res) => {
       "/materials",
       "/materials/:id",
       "/vocab",
+      "/vocab/practice",
       "/translate"
     ]
   });

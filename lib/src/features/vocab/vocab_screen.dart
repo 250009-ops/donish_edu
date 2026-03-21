@@ -1,50 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/network/api_client.dart';
+import 'data/vocab_repository.dart';
 import 'flashcards_screen.dart';
 import 'quiz_screen.dart';
-
-const List<String> _wordFormOptions = [
-  'All',
-  'Noun',
-  'Verb',
-  'Adjective',
-  'Adverb',
-  'Pronoun',
-];
-
-const Color _kFilterHighlight = Color(0xFFF59E0B);
 
 class VocabScreen extends StatefulWidget {
   const VocabScreen({super.key});
 
   @override
-  State<VocabScreen> createState() => _VocabScreenState();
+  VocabScreenState createState() => VocabScreenState();
 }
 
 typedef VocabWord = ({String english, String uzbek, String tag, double progress});
 
-class _VocabScreenState extends State<VocabScreen> {
-  String _wordFormFilter = _wordFormOptions.first;
+class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
+  final _repo = VocabRepository(ApiClient.instance);
+
+  bool _loading = true;
+  String? _loadError;
+  List<VocabEntry> _entries = [];
   String _searchQuery = '';
 
-  static const List<VocabWord> _allWords = [
-    (english: 'Beautiful', uzbek: 'Chiroyli', tag: 'Adjective', progress: 0.85),
-    (english: 'School', uzbek: 'Maktab', tag: 'Noun', progress: 1.0),
-    (english: 'Book', uzbek: 'Kitob', tag: 'Noun', progress: 0.9),
-    (english: 'Run', uzbek: 'Yugurmoq', tag: 'Verb', progress: 0.6),
-    (english: 'Quickly', uzbek: 'Tez', tag: 'Adverb', progress: 0.75),
-    (english: 'He', uzbek: 'U', tag: 'Pronoun', progress: 1.0),
-    (english: 'Happy', uzbek: 'Baxtli', tag: 'Adjective', progress: 0.8),
-    (english: 'Read', uzbek: 'O\'qimoq', tag: 'Verb', progress: 0.7),
-  ];
+  int get _totalWords => _entries.length;
+
+  int get _masteredCount =>
+      _entries.where((e) => e.progress >= 0.85).length;
+
+  int get _learningCount => _totalWords - _masteredCount;
+
+  double get _masteryPercent =>
+      _totalWords == 0 ? 0.0 : _masteredCount / _totalWords;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadVocabulary();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadVocabulary();
+    }
+  }
+
+  /// Public so [AppShell] can refresh when the user opens the Vocabulary tab.
+  Future<void> loadVocabulary() => _loadVocabulary();
+
+  Future<void> _loadVocabulary() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final list = await _repo.listForLocalDay(DateTime.now());
+      if (!mounted) return;
+      setState(() {
+        _entries = list;
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        if (_entries.isEmpty) {
+          _loadError = e.toString();
+        }
+      });
+    }
+  }
 
   List<VocabWord> get _filteredWords {
-    Iterable<VocabWord> words = _allWords;
-
-    if (_wordFormFilter != _wordFormOptions.first) {
-      words = words.where((w) => w.tag == _wordFormFilter);
-    }
+    Iterable<VocabWord> words = _entries.map(
+      (e) => (
+        english: e.word,
+        uzbek: e.translationUz,
+        tag: e.displayTag,
+        progress: e.progress,
+      ),
+    );
 
     final query = _searchQuery.trim().toLowerCase();
     if (query.isNotEmpty) {
@@ -60,27 +104,76 @@ class _VocabScreenState extends State<VocabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading && _entries.isEmpty && _loadError == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF5F6FA),
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_loadError != null && _entries.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF5F6FA),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _loadError!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: _loadVocabulary,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const _StatsCard(),
-            const SizedBox(height: 16),
-            _SearchBar(
-              onChanged: (value) =>
-                  setState(() => _searchQuery = value),
-            ),
-            const SizedBox(height: 16),
-            const _PracticeRow(),
-            const SizedBox(height: 20),
-            _WordsSection(
-              wordFormFilter: _wordFormFilter,
-              onFilterChanged: (v) => setState(() => _wordFormFilter = v!),
-              words: _filteredWords,
-            ),
-          ],
+        child: RefreshIndicator(
+          onRefresh: _loadVocabulary,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              _StatsCard(
+                totalWords: _totalWords,
+                masteredCount: _masteredCount,
+                learningCount: _learningCount,
+                masteryPercent: _masteryPercent,
+              ),
+              const SizedBox(height: 16),
+              _SearchBar(
+                onChanged: (value) =>
+                    setState(() => _searchQuery = value),
+              ),
+              const SizedBox(height: 16),
+              _PracticeRow(
+                entries: List<VocabEntry>.from(_entries),
+                vocabRepository: _repo,
+                onReturnFromPractice: _loadVocabulary,
+              ),
+              const SizedBox(height: 20),
+              _WordsSection(words: _filteredWords),
+            ],
+          ),
         ),
       ),
     );
@@ -88,10 +181,25 @@ class _VocabScreenState extends State<VocabScreen> {
 }
 
 class _StatsCard extends StatelessWidget {
-  const _StatsCard();
+  const _StatsCard({
+    required this.totalWords,
+    required this.masteredCount,
+    required this.learningCount,
+    required this.masteryPercent,
+  });
+
+  final int totalWords;
+  final int masteredCount;
+  final int learningCount;
+  final double masteryPercent;
 
   @override
   Widget build(BuildContext context) {
+    final barValue = totalWords == 0 ? 0.0 : masteryPercent;
+    final pctLabel = totalWords == 0
+        ? '0%'
+        : '${(masteryPercent * 100).toStringAsFixed(0)}%';
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -124,7 +232,7 @@ class _StatsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '542',
+                  '$totalWords',
                   style: GoogleFonts.inter(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
@@ -148,7 +256,7 @@ class _StatsCard extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: FractionallySizedBox(
-                        widthFactor: 0.7,
+                        widthFactor: barValue.clamp(0.0, 1.0),
                         child: Container(
                           color: Colors.white,
                         ),
@@ -161,14 +269,14 @@ class _StatsCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '387 mastered',
+                      '$masteredCount mastered',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                     Text(
-                      '155 learning',
+                      '$learningCount learning',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: Colors.white.withOpacity(0.9),
@@ -190,7 +298,7 @@ class _StatsCard extends StatelessWidget {
                   width: 72,
                   height: 72,
                   child: CircularProgressIndicator(
-                    value: 0.71,
+                    value: totalWords == 0 ? 0 : barValue.clamp(0.0, 1.0),
                     strokeWidth: 7,
                     valueColor:
                         const AlwaysStoppedAnimation<Color>(Colors.white),
@@ -198,7 +306,7 @@ class _StatsCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '71%',
+                  pctLabel,
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -238,7 +346,15 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _PracticeRow extends StatelessWidget {
-  const _PracticeRow();
+  const _PracticeRow({
+    required this.entries,
+    required this.vocabRepository,
+    required this.onReturnFromPractice,
+  });
+
+  final List<VocabEntry> entries;
+  final VocabRepository vocabRepository;
+  final Future<void> Function() onReturnFromPractice;
 
   @override
   Widget build(BuildContext context) {
@@ -249,11 +365,16 @@ class _PracticeRow extends StatelessWidget {
             label: 'Flashcards',
             icon: Icons.loop,
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context)
+                  .push(
                 MaterialPageRoute(
-                  builder: (_) => const FlashcardsScreen(),
+                  builder: (_) => FlashcardsScreen(
+                    entries: entries,
+                    vocabRepository: vocabRepository,
+                  ),
                 ),
-              );
+              )
+                  .then((_) => onReturnFromPractice());
             },
           ),
         ),
@@ -263,11 +384,16 @@ class _PracticeRow extends StatelessWidget {
             label: 'Quiz Mode',
             icon: Icons.star,
             onTap: () {
-              Navigator.of(context).push(
+              Navigator.of(context)
+                  .push(
                 MaterialPageRoute(
-                  builder: (_) => const QuizScreen(),
+                  builder: (_) => QuizScreen(
+                    entries: entries,
+                    vocabRepository: vocabRepository,
+                  ),
                 ),
-              );
+              )
+                  .then((_) => onReturnFromPractice());
             },
           ),
         ),
@@ -323,14 +449,8 @@ class _PracticeCard extends StatelessWidget {
 }
 
 class _WordsSection extends StatelessWidget {
-  const _WordsSection({
-    required this.wordFormFilter,
-    required this.onFilterChanged,
-    required this.words,
-  });
+  const _WordsSection({required this.words});
 
-  final String wordFormFilter;
-  final void Function(String?) onFilterChanged;
   final List<VocabWord> words;
 
   @override
@@ -338,23 +458,13 @@ class _WordsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Your Words',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF111827),
-              ),
-            ),
-            _FilterButton(
-              currentValue: wordFormFilter,
-              options: _wordFormOptions,
-              onChanged: onFilterChanged,
-            ),
-          ],
+        Text(
+          'Your Words',
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF111827),
+          ),
         ),
         const SizedBox(height: 8),
         if (words.isEmpty)
@@ -362,7 +472,8 @@ class _WordsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                'No words in this category',
+                'No words saved today. Tap a word in a material to add some.',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: const Color(0xFF6B7280),
@@ -385,219 +496,6 @@ class _WordsSection extends StatelessWidget {
             );
           }),
       ],
-    );
-  }
-}
-
-/// Filter button with dropdown: white card, checkmark for selected, orange for hover (per image).
-/// Dropdown overlay for vocab filter: white card, checkmark for selected, orange for hover.
-class _VocabFilterOverlay extends StatefulWidget {
-  const _VocabFilterOverlay({
-    required this.left,
-    required this.top,
-    required this.menuWidth,
-    required this.itemHeight,
-    required this.options,
-    required this.currentValue,
-    required this.onSelected,
-    required this.onDismiss,
-  });
-
-  final double left;
-  final double top;
-  final double menuWidth;
-  final double itemHeight;
-  final List<String> options;
-  final String currentValue;
-  final void Function(String) onSelected;
-  final VoidCallback onDismiss;
-
-  @override
-  State<_VocabFilterOverlay> createState() => _VocabFilterOverlayState();
-}
-
-class _VocabFilterOverlayState extends State<_VocabFilterOverlay> {
-  int _hoveredIndex = -1;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: widget.onDismiss,
-          behavior: HitTestBehavior.opaque,
-          child: const SizedBox.expand(),
-        ),
-        Positioned(
-          left: widget.left,
-          top: widget.top,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: widget.menuWidth,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(widget.options.length, (i) {
-                  final option = widget.options[i];
-                  final isSelected = widget.currentValue == option;
-                  final isHovered = _hoveredIndex == i;
-                  return MouseRegion(
-                    onEnter: (_) => setState(() => _hoveredIndex = i),
-                    onExit: (_) => setState(() => _hoveredIndex = -1),
-                    child: Material(
-                      color: isHovered ? _kFilterHighlight : Colors.transparent,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(i == 0 ? 12 : 0),
-                        bottom: Radius.circular(
-                            i == widget.options.length - 1 ? 12 : 0),
-                      ),
-                      child: InkWell(
-                        onTap: () => widget.onSelected(option),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(i == 0 ? 12 : 0),
-                          bottom: Radius.circular(
-                              i == widget.options.length - 1 ? 12 : 0),
-                        ),
-                        child: SizedBox(
-                          height: widget.itemHeight,
-                          width: double.infinity,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  child: isSelected
-                                      ? Icon(
-                                          Icons.check_rounded,
-                                          size: 20,
-                                          color: isHovered
-                                              ? Colors.white
-                                              : const Color(0xFF111827),
-                                        )
-                                      : null,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    option,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : const Color(0xFF111827),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FilterButton extends StatefulWidget {
-  const _FilterButton({
-    required this.currentValue,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String currentValue;
-  final List<String> options;
-  final void Function(String?) onChanged;
-
-  @override
-  State<_FilterButton> createState() => _FilterButtonState();
-}
-
-class _FilterButtonState extends State<_FilterButton> {
-  final GlobalKey _key = GlobalKey();
-
-  void _openMenu() async {
-    final box = _key.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final offset = box.localToGlobal(Offset.zero);
-    const itemHeight = 44.0;
-    const menuWidth = 180.0;
-    final top = offset.dy + box.size.height + 4;
-    final left = offset.dx + box.size.width - menuWidth;
-
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final clampedLeft = left.clamp(12.0, screenWidth - menuWidth - 12);
-
-    final selected = await showDialog<String>(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (ctx) => _VocabFilterOverlay(
-        left: clampedLeft,
-        top: top,
-        menuWidth: menuWidth,
-        itemHeight: itemHeight,
-        options: widget.options,
-        currentValue: widget.currentValue,
-        onSelected: (v) => Navigator.of(ctx).pop(v),
-        onDismiss: () => Navigator.of(ctx).pop(),
-      ),
-    );
-
-    if (selected != null) widget.onChanged(selected);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: _key,
-        onTap: _openMenu,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.filter_list_rounded,
-                size: 20,
-                color: const Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Filter',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

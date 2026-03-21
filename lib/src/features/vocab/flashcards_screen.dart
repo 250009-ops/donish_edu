@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/network/api_client.dart';
+import 'data/vocab_repository.dart';
+
 const Color _kBg = Color(0xFFF9FAFB);
 const Color _kTextDark = Color(0xFF111827);
 const Color _kTextMuted = Color(0xFF9CA3AF);
@@ -12,7 +15,14 @@ const Color _kEasyGreen = Color(0xFF22C55E);
 const Color _kNavButtonBg = Color(0xFFE5E7EB);
 
 class FlashcardsScreen extends StatefulWidget {
-  const FlashcardsScreen({super.key});
+  const FlashcardsScreen({
+    super.key,
+    required this.entries,
+    this.vocabRepository,
+  });
+
+  final List<VocabEntry> entries;
+  final VocabRepository? vocabRepository;
 
   @override
   State<FlashcardsScreen> createState() => _FlashcardsScreenState();
@@ -23,14 +33,33 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   bool _showBack = false;
   int _slideDirection = 1; // 1 = next (from right), -1 = prev
 
-  final _cards = const [
-    _FlashcardData(front: 'Beautiful', back: 'Chiroyli'),
-    _FlashcardData(front: 'School', back: 'Maktab'),
-    _FlashcardData(front: 'Book', back: 'Kitob'),
-    _FlashcardData(front: 'Friend', back: 'Do\'st'),
-  ];
+  late final List<_FlashcardData> _cards;
+  late final VocabRepository _repo;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = widget.vocabRepository ?? VocabRepository(ApiClient.instance);
+    _cards = widget.entries
+        .map(
+          (e) => _FlashcardData(
+            vocabId: e.id,
+            front: e.word,
+            back: e.translationUz,
+          ),
+        )
+        .toList();
+  }
 
   int get _total => _cards.length;
+
+  void _reportFlashcardPractice(String action) {
+    if (_total == 0) return;
+    final id = _cards[_currentIndex].vocabId;
+    _repo
+        .recordPractice(vocabId: id, action: action)
+        .catchError((Object _) {});
+  }
 
   void _goPrev() {
     if (_currentIndex <= 0) return;
@@ -51,6 +80,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 
   void _markHard() {
+    _reportFlashcardPractice('flashcard_hard');
     setState(() {
       _slideDirection = 1;
       _showBack = false;
@@ -61,6 +91,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 
   void _markEasy() {
+    _reportFlashcardPractice('flashcard_easy');
     setState(() {
       _slideDirection = 1;
       _showBack = false;
@@ -80,6 +111,41 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_total == 0) {
+      return Scaffold(
+        backgroundColor: _kBg,
+        appBar: AppBar(
+          backgroundColor: _kBg,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            color: _kTextDark,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Flashcards',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              color: _kTextDark,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'No words saved today. Add words from a material first.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                color: _kTextMuted,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final card = _cards[_currentIndex];
     final n = _currentIndex + 1;
     final progress = _total > 0 ? n / _total : 0.0;
@@ -481,10 +547,12 @@ class _ActionButton extends StatelessWidget {
 
 class _FlashcardData {
   const _FlashcardData({
+    required this.vocabId,
     required this.front,
     required this.back,
   });
 
+  final String vocabId;
   final String front;
   final String back;
 }
