@@ -29,6 +29,9 @@ class _AppShellState extends State<AppShell> {
   /// Recreate Add Material screen after successful upload so form resets.
   int _addScreenSeed = 0;
 
+  /// Recreate Materials tab so the list refetches after upload.
+  int _materialsListSeed = 0;
+
   /// Set by AddMaterialScreen when it mounts; used when user taps FAB to upload.
   VoidCallback? _addMaterialUpload;
 
@@ -66,6 +69,7 @@ class _AppShellState extends State<AppShell> {
     setState(() {
       _currentIndex = 0;
       _addScreenSeed++;
+      _materialsListSeed++;
       _addHasPdf = false;
       _addName = '';
       _addType = null;
@@ -87,7 +91,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      const MaterialsScreen(),
+      MaterialsScreen(key: ValueKey('materials_$_materialsListSeed')),
       AddMaterialScreen(
         key: ValueKey('add_$_addScreenSeed'),
         onFormChanged: _onAddFormChanged,

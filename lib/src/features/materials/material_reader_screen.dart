@@ -5,23 +5,100 @@ import '../../core/network/api_client.dart';
 
 const Color _kTextPrimary = Color(0xFF111827);
 const Color _kTextSecondary = Color(0xFF6B7280);
+const Color _kViolet = Color(0xFF4C6FFF);
 
-class MaterialReaderScreen extends StatelessWidget {
+List<String> paragraphsFromExtractedText(String content) {
+  final t = content.trim();
+  if (t.isEmpty) return [];
+  var blocks = t
+      .split(RegExp(r'\n\s*\n'))
+      .map((s) => s.trim().replaceAll(RegExp(r'[ \t]+'), ' '))
+      .where((s) => s.isNotEmpty)
+      .toList();
+  if (blocks.isEmpty) {
+    return [t.replaceAll(RegExp(r'\s+'), ' ')];
+  }
+  if (blocks.length == 1 && blocks.first.length > 6000) {
+    final lines = blocks.first
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (lines.length > 1) return lines;
+  }
+  return blocks;
+}
+
+class MaterialReaderScreen extends StatefulWidget {
   const MaterialReaderScreen({
     super.key,
-    required this.materialTitle,
+    required this.materialId,
+    required this.initialTitle,
   });
 
-  final String materialTitle;
+  final String materialId;
+  final String initialTitle;
+
+  @override
+  State<MaterialReaderScreen> createState() => _MaterialReaderScreenState();
+}
+
+class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
+  bool _loading = true;
+  String? _error;
+  String _title = '';
+  List<String> _paragraphs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _title = widget.initialTitle;
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final decoded = await ApiClient.instance.getJson(
+        '/materials/${Uri.encodeComponent(widget.materialId)}',
+        authenticated: true,
+      );
+      if (decoded is! Map<String, dynamic>) {
+        throw const ApiException('Invalid material response.');
+      }
+      final json = decoded;
+      if (!mounted) return;
+      final title = json['title'] as String? ?? widget.initialTitle;
+      final raw = json['content_text'] as String? ?? '';
+      final paras = paragraphsFromExtractedText(raw);
+      if (paras.isEmpty) {
+        setState(() {
+          _title = title;
+          _error = 'This material has no readable text.';
+          _paragraphs = [];
+          _loading = false;
+        });
+        return;
+      }
+      setState(() {
+        _title = title;
+        _paragraphs = paras;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const sampleParagraphs = [
-      'Climate change is one of the most pressing global challenges.',
-      'When you tap on an unknown word, Donish will show you its natural '
-          'Uzbek translation.',
-    ];
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -35,7 +112,9 @@ class MaterialReaderScreen extends StatelessWidget {
         ),
         centerTitle: true,
         title: Text(
-          materialTitle,
+          _title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.inter(
             fontSize: 17,
             fontWeight: FontWeight.w500,
@@ -43,34 +122,69 @@ class MaterialReaderScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              materialTitle,
-              style: GoogleFonts.inter(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: _kTextPrimary,
-                height: 1.25,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: _kViolet),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  color: const Color(0xFF6B7280),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap any word to see its translation',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: _kTextSecondary,
-                height: 1.4,
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
               ),
-            ),
-            const SizedBox(height: 24),
-            _TappableText(paragraphs: sampleParagraphs),
-          ],
+            ],
+          ),
         ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _title,
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: _kTextPrimary,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap any word to see its translation',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: _kTextSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _TappableText(paragraphs: _paragraphs),
+        ],
       ),
     );
   }
@@ -128,7 +242,7 @@ class _ParagraphBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final words = text.split(' ');
+    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Wrap(
       spacing: 4,
       runSpacing: 6,
@@ -152,7 +266,6 @@ class _ParagraphBlock extends StatelessWidget {
   }
 }
 
-/// Figma: dark popover above the word with tail, "Word" / "Translation" labels, Save button.
 const Color _kPopoverBg = Color(0xFF282A3A);
 const Color _kPopoverLabel = Color(0xFF9CA3AF);
 const Color _kPopoverButton = Color(0xFF6F42C1);
@@ -404,7 +517,6 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   }
 }
 
-/// Draws a small downward-pointing triangle tail at bottom center of popover.
 class _TailPainter extends CustomPainter {
   _TailPainter({required this.color});
 
@@ -423,4 +535,3 @@ class _TailPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

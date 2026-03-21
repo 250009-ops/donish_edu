@@ -1,35 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/network/api_client.dart';
 import 'material_reader_screen.dart';
 
-const Color _kFilterHighlight = Color(0xFFF59E0B);
+const Color _kViolet = Color(0xFF4C6FFF);
 
 const List<String> _typeOptions = [
   'All Types',
-  'Articles',
-  'Stories',
-  'Books',
+  'Article',
+  'Short Story',
+  'Book',
+  'Document',
+  'Other',
 ];
+
 const List<String> _levelOptions = [
   'All Levels',
-  'Beginner',
-  'Intermediate',
-  'Advanced',
+  'A1',
+  'A2',
+  'B1',
+  'B2',
+  'C1',
+  'C2',
 ];
 
-typedef ReadingMaterial = ({String title, String level, String type});
+class MaterialSummary {
+  const MaterialSummary({
+    required this.id,
+    required this.title,
+    required this.materialType,
+    required this.englishLevel,
+    this.pageCount,
+  });
 
-const List<ReadingMaterial> _materials = [
-  (title: 'Tech Innovations 2026', level: 'Intermediate', type: 'Article'),
-  (title: 'Climate Change Today', level: 'Advanced', type: 'Article'),
-  (title: 'Space Exploration', level: 'Advanced', type: 'Article'),
-  (title: 'Healthy Living Tips', level: 'Beginner', type: 'Article'),
-  (title: 'The Lost Key', level: 'Beginner', type: 'Short Story'),
-  (title: 'The Garden Mystery', level: 'Beginner', type: 'Short Story'),
-  (title: 'Midnight Adventure', level: 'Intermediate', type: 'Short Story'),
-  (title: 'The Digital Age', level: 'Advanced', type: 'Book'),
-];
+  final String id;
+  final String title;
+  final String materialType;
+  final String englishLevel;
+  final int? pageCount;
+
+  factory MaterialSummary.fromJson(Map<String, dynamic> json) {
+    return MaterialSummary(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Untitled',
+      materialType: json['material_type'] as String? ?? 'Other',
+      englishLevel: json['english_level'] as String? ?? 'B1',
+      pageCount: json['page_count'] as int?,
+    );
+  }
+}
 
 class MaterialsScreen extends StatefulWidget {
   const MaterialsScreen({super.key});
@@ -43,33 +63,57 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
   String _selectedLevel = _levelOptions.first;
   String _searchQuery = '';
 
-  List<ReadingMaterial> get _filteredMaterials {
-    return _materials.where((material) {
-      final query = _searchQuery.trim().toLowerCase();
-      final matchesSearch = query.isEmpty ||
-          material.title.toLowerCase().contains(query);
+  List<MaterialSummary> _all = [];
+  bool _loading = true;
+  String? _error;
 
-      bool matchesType;
-      if (_selectedType == _typeOptions.first) {
-        matchesType = true;
-      } else {
-        switch (_selectedType) {
-          case 'Articles':
-            matchesType = material.type == 'Article';
-            break;
-          case 'Stories':
-            matchesType = material.type == 'Short Story';
-            break;
-          case 'Books':
-            matchesType = material.type == 'Book';
-            break;
-          default:
-            matchesType = true;
-        }
-      }
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final raw = await ApiClient.instance.getJson(
+        '/materials',
+        authenticated: true,
+      );
+      if (!mounted) return;
+      final list = raw is List
+          ? raw
+              .whereType<Map<String, dynamic>>()
+              .map(MaterialSummary.fromJson)
+              .toList()
+          : <MaterialSummary>[];
+      setState(() {
+        _all = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  List<MaterialSummary> get _filteredMaterials {
+    return _all.where((material) {
+      final query = _searchQuery.trim().toLowerCase();
+      final matchesSearch =
+          query.isEmpty || material.title.toLowerCase().contains(query);
+
+      final matchesType = _selectedType == _typeOptions.first ||
+          material.materialType == _selectedType;
 
       final matchesLevel = _selectedLevel == _levelOptions.first ||
-          material.level == _selectedLevel;
+          material.englishLevel == _selectedLevel;
 
       return matchesSearch && matchesType && matchesLevel;
     }).toList();
@@ -86,18 +130,206 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             selectedLevel: _selectedLevel,
             onTypeChanged: (v) => setState(() => _selectedType = v!),
             onLevelChanged: (v) => setState(() => _selectedLevel = v!),
-            onSearchChanged: (value) =>
-                setState(() => _searchQuery = value),
+            onSearchChanged: (value) => setState(() => _searchQuery = value),
           ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: _kViolet,
+        ),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey.shade400),
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final items = _filteredMaterials;
+    if (items.isEmpty && _all.isEmpty) {
+      return _EmptyMaterialsState();
+    }
+    if (items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No materials match your filters.',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: _kViolet,
+      onRefresh: _load,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _MaterialCard(material: items[index]);
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyMaterialsState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+      children: [
+        const SizedBox(height: 24),
+        Center(
+          child: Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              size: 44,
+              color: _kViolet,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Your reading shelf is empty',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF111827),
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Upload a short PDF (up to about 10 pages) to start reading in English. '
+          'Tap any word while you read to see an Uzbek translation and save words to your vocabulary.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6B7280),
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.touch_app_rounded, color: _kViolet.withOpacity(0.9), size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    'How to add your first material',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111827),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _StepRow(number: '1', text: 'Tap the + button below.'),
+              _StepRow(number: '2', text: 'Choose a PDF, name it, and pick type & level.'),
+              _StepRow(number: '3', text: 'Tap the cloud upload button to send it to your account.'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({required this.number, required this.text});
+
+  final String number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              number,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFD97706),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _filteredMaterials.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final material = _filteredMaterials[index];
-                return _MaterialCard(material: material);
-              },
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.45,
+                color: const Color(0xFF374151),
+              ),
             ),
           ),
         ],
@@ -298,45 +530,56 @@ class _MaterialsFilterDropdownState extends State<_MaterialsFilterDropdown> {
   }
 }
 
+Color _levelAccentColor(String level) {
+  switch (level) {
+    case 'A1':
+    case 'A2':
+      return const Color(0xFF16A34A);
+    case 'B1':
+    case 'B2':
+      return const Color(0xFFF97316);
+    case 'C1':
+    case 'C2':
+      return const Color(0xFFDC2626);
+    default:
+      return const Color(0xFF4B5563);
+  }
+}
+
+Color _levelAccentBackground(String level) {
+  switch (level) {
+    case 'A1':
+    case 'A2':
+      return const Color(0xFFE5F9ED);
+    case 'B1':
+    case 'B2':
+      return const Color(0xFFFFF4E5);
+    case 'C1':
+    case 'C2':
+      return const Color(0xFFFEE2E2);
+    default:
+      return const Color(0xFFE5E7EB);
+  }
+}
+
 class _MaterialCard extends StatelessWidget {
   const _MaterialCard({required this.material});
 
-  final ReadingMaterial material;
-
-  Color _levelColor(String level) {
-    switch (level) {
-      case 'Beginner':
-        return const Color(0xFF16A34A);
-      case 'Intermediate':
-        return const Color(0xFFF97316);
-      case 'Advanced':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFF4B5563);
-    }
-  }
-
-  Color _levelBackground(String level) {
-    switch (level) {
-      case 'Beginner':
-        return const Color(0xFFE5F9ED);
-      case 'Intermediate':
-        return const Color(0xFFFFF4E5);
-      case 'Advanced':
-        return const Color(0xFFFEE2E2);
-      default:
-        return const Color(0xFFE5E7EB);
-    }
-  }
+  final MaterialSummary material;
 
   @override
   Widget build(BuildContext context) {
+    final level = material.englishLevel;
+    final lc = _levelAccentColor(level);
+    final lb = _levelAccentBackground(level);
+
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (_) => MaterialReaderScreen(
-              materialTitle: material.title,
+              materialId: material.id,
+              initialTitle: material.title,
             ),
           ),
         );
@@ -397,34 +640,38 @@ class _MaterialCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _levelBackground(material.level),
+                          color: lb,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          material.level,
+                          level,
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: _levelColor(material.level),
+                            color: lc,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0EAFF),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          material.type,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF4C6FFF),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0EAFF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            material.materialType,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF4C6FFF),
+                            ),
                           ),
                         ),
                       ),
@@ -439,4 +686,3 @@ class _MaterialCard extends StatelessWidget {
     );
   }
 }
-

@@ -47,3 +47,8 @@ app.*.map.json
 # Backend
 /backend/.env
 /backend/node_modules/
+
+# Local Android platform-tools fallback (see run_on_device.bat)
+_platform-tools-new/
+_platform-tools-latest.zip
+_adb*.txt

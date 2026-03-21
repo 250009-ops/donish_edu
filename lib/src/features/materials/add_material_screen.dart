@@ -1,13 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
+import '../../util/material_file_reader.dart';
 
 const Color _kViolet = Color(0xFF4C6FFF);
-
-/// Figma: yellowish-orange highlight for selected dropdown option.
-const Color _kSelectHighlight = Color(0xFFF59E0B);
 
 class AddMaterialScreen extends StatefulWidget {
   const AddMaterialScreen({
@@ -36,6 +36,7 @@ class AddMaterialScreen extends StatefulWidget {
 class _AddMaterialScreenState extends State<AddMaterialScreen> {
   String? _fileName;
   String? _filePath;
+  Uint8List? _fileBytes;
   final _nameController = TextEditingController();
   String? _selectedType;
   String? _selectedLevel;
@@ -74,8 +75,10 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
   }
 
   void _notifyFormChanged() {
+    final hasFile = (_fileBytes != null && _fileBytes!.isNotEmpty) ||
+        (_filePath != null && _filePath!.isNotEmpty);
     widget.onFormChanged(
-      hasPdf: _filePath != null,
+      hasPdf: hasFile,
       name: _nameController.text,
       type: _selectedType,
       level: _selectedLevel,
@@ -87,6 +90,7 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -96,6 +100,9 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     setState(() {
       _fileName = file.name;
       _filePath = file.path;
+      _fileBytes = file.bytes != null && file.bytes!.isNotEmpty
+          ? Uint8List.fromList(file.bytes!)
+          : null;
       _nameController.text = nameFromFile;
     });
     _notifyFormChanged();
@@ -105,27 +112,50 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     setState(() {
       _fileName = null;
       _filePath = null;
+      _fileBytes = null;
       _nameController.clear();
     });
     _notifyFormChanged();
   }
 
   Future<void> _upload() async {
-    if (_fileName == null || _filePath == null) return;
+    if (_fileName == null) return;
     if (_nameController.text.trim().isEmpty) return;
     if (_selectedType == null || _selectedLevel == null) return;
+
+    List<int> raw;
+    if (_fileBytes != null && _fileBytes!.isNotEmpty) {
+      raw = _fileBytes!;
+    } else {
+      final fromDisk = await readBytesFromPath(_filePath);
+      if (fromDisk == null || fromDisk.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not read this PDF. Try choosing the file again.',
+            ),
+          ),
+        );
+        return;
+      }
+      raw = fromDisk;
+    }
 
     setState(() => _isUploading = true);
     _notifyFormChanged();
 
     try {
-      await ApiClient.instance.postJson(
+      await ApiClient.instance.postMultipart(
         '/materials',
         authenticated: true,
-        body: {
+        fileField: 'file',
+        fileBytes: raw,
+        fileName: _fileName!,
+        fields: {
           'title': _nameController.text.trim(),
-          'file_path': _fileName,
-          'page_count': null,
+          'material_type': _selectedType!,
+          'english_level': _selectedLevel!,
         },
       );
 
@@ -318,7 +348,8 @@ class _PdfUploadZone extends StatelessWidget {
                     ],
                     const SizedBox(height: 4),
                     Text(
-                      'Supports PDF files up to 50MB.',
+                      'Text-based PDFs only, up to ~10 pages (~4 MB).',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: const Color(0xFF9CA3AF),

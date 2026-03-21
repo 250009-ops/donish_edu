@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
 
@@ -71,6 +72,47 @@ class ApiClient {
     }
     throw const ApiException('Unexpected response format.');
   }
+
+  /// Multipart upload (e.g. PDF). [fileField] must match server (we use `file`).
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required String fileField,
+    required List<int> fileBytes,
+    required String fileName,
+    bool authenticated = false,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields.addAll(fields);
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        fileField,
+        fileBytes,
+        filename: fileName,
+        contentType: MediaType('application', 'pdf'),
+      ),
+    );
+    if (authenticated && _token != null) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
+
+    if (response.statusCode >= 400) {
+      final message = decoded is Map<String, dynamic> && decoded['error'] is String
+          ? decoded['error'] as String
+          : 'Request failed with status ${response.statusCode}';
+      throw ApiException(message, statusCode: response.statusCode);
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    throw const ApiException('Unexpected response format.');
+  }
 }
 
 class ApiException implements Exception {
@@ -80,6 +122,6 @@ class ApiException implements Exception {
   final int? statusCode;
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }
 

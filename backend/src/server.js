@@ -22,7 +22,15 @@ app.get("/", (req, res) => {
   res.json({
     service: "donish-backend",
     message: "Donish API. Use /health for status.",
-    endpoints: ["/health", "/auth", "/bot", "/materials", "/vocab", "/translate"]
+    endpoints: [
+      "/health",
+      "/auth",
+      "/bot",
+      "/materials",
+      "/materials/:id",
+      "/vocab",
+      "/translate"
+    ]
   });
 });
 

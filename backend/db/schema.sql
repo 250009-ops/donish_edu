@@ -12,6 +12,9 @@ create table if not exists materials (
   title text not null,
   file_path text not null,
   page_count integer,
+  material_type text,
+  english_level text,
+  content_text text,
   created_at timestamptz not null default now()
 );
 
