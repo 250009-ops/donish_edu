@@ -39,6 +39,35 @@ class ApiClient {
     return decoded;
   }
 
+  /// DELETE with optional auth. Accepts 204 No Content or empty body.
+  Future<void> deleteJson(
+    String path, {
+    bool authenticated = false,
+  }) async {
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
+    final headers = <String, String>{};
+    if (authenticated && _token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+
+    final response = await http.delete(uri, headers: headers);
+
+    if (response.statusCode >= 400) {
+      dynamic decoded;
+      try {
+        decoded = response.body.isEmpty
+            ? <String, dynamic>{}
+            : jsonDecode(response.body);
+      } catch (_) {
+        decoded = <String, dynamic>{};
+      }
+      final message = decoded is Map<String, dynamic> && decoded['error'] is String
+          ? decoded['error'] as String
+          : 'Request failed with status ${response.statusCode}';
+      throw ApiException(message, statusCode: response.statusCode);
+    }
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     Map<String, dynamic>? body,

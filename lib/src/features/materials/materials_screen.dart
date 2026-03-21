@@ -103,6 +103,70 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     }
   }
 
+  Future<void> _confirmAndDeleteMaterial(
+    BuildContext context,
+    MaterialSummary material,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Delete material?',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '“${material.title}” will be removed from your list. '
+          'Words you already saved stay in vocabulary.',
+          style: GoogleFonts.inter(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await ApiClient.instance.deleteJson(
+        '/materials/${material.id}',
+        authenticated: true,
+      );
+      if (!mounted) return;
+      setState(() => _all.removeWhere((m) => m.id == material.id));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Removed “${material.title}”',
+            style: GoogleFonts.inter(),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString(),
+            style: GoogleFonts.inter(),
+          ),
+          backgroundColor: const Color(0xFFB91C1C),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   List<MaterialSummary> get _filteredMaterials {
     return _all.where((material) {
       final query = _searchQuery.trim().toLowerCase();
@@ -201,7 +265,11 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          return _MaterialCard(material: items[index]);
+          final material = items[index];
+          return _MaterialCard(
+            material: material,
+            onDelete: () => _confirmAndDeleteMaterial(context, material),
+          );
         },
       ),
     );
@@ -563,9 +631,13 @@ Color _levelAccentBackground(String level) {
 }
 
 class _MaterialCard extends StatelessWidget {
-  const _MaterialCard({required this.material});
+  const _MaterialCard({
+    required this.material,
+    required this.onDelete,
+  });
 
   final MaterialSummary material;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -573,115 +645,133 @@ class _MaterialCard extends StatelessWidget {
     final lc = _levelAccentColor(level);
     final lb = _levelAccentBackground(level);
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => MaterialReaderScreen(
-              materialId: material.id,
-              initialTitle: material.title,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
           ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFFF1F2),
-                border: Border.all(
-                  color: const Color(0xFFFB7185),
-                  width: 1.6,
-                ),
-              ),
-              child: const Icon(
-                Icons.insert_drive_file_rounded,
-                size: 20,
-                color: Color(0xFFFB7185),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    material.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF111827),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MaterialReaderScreen(
+                      materialId: material.id,
+                      initialTitle: material.title,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: lb,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          level,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: lc,
-                          ),
+                );
+              },
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFFFF1F2),
+                        border: Border.all(
+                          color: const Color(0xFFFB7185),
+                          width: 1.6,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0EAFF),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            material.materialType,
+                      child: const Icon(
+                        Icons.insert_drive_file_rounded,
+                        size: 20,
+                        color: Color(0xFFFB7185),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            material.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
-                              fontSize: 11,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF4C6FFF),
+                              color: const Color(0xFF111827),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: lb,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  level,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: lc,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0EAFF),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    material.materialType,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF4C6FFF),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          IconButton(
+            tooltip: 'Delete material',
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: Color(0xFF9CA3AF),
+            ),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }

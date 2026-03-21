@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
       "/auth",
       "/bot",
       "/materials",
-      "/materials/:id",
+      "/materials/:id (GET, DELETE)",
       "/vocab",
       "/vocab/practice",
       "/translate"

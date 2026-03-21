@@ -89,6 +89,43 @@ materialsRouter.get("/:id", async (req, res) => {
   return res.json(data);
 });
 
+materialsRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "Invalid material id." });
+  }
+
+  const { data: row, error: findErr } = await supabaseAdmin
+    .from("materials")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", req.user.id)
+    .maybeSingle();
+
+  if (findErr) {
+    // eslint-disable-next-line no-console
+    console.error("DELETE /materials/:id lookup error:", findErr);
+    return res.status(500).json({ error: "Failed to verify material." });
+  }
+  if (!row) {
+    return res.status(404).json({ error: "Material not found." });
+  }
+
+  const { error: delErr } = await supabaseAdmin
+    .from("materials")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", req.user.id);
+
+  if (delErr) {
+    // eslint-disable-next-line no-console
+    console.error("DELETE /materials/:id error:", delErr);
+    return res.status(500).json({ error: "Failed to delete material." });
+  }
+
+  return res.status(204).send();
+});
+
 function handleMulter(req, res, next) {
   upload.single("file")(req, res, (err) => {
     if (err) {
