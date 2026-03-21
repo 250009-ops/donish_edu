@@ -36,6 +36,7 @@ create table if not exists practice_stats (
   last_seen_at timestamptz,
   success_count integer not null default 0,
   failure_count integer not null default 0,
-  ease_factor double precision
+  ease_factor double precision,
+  ui_progress double precision
 );
 

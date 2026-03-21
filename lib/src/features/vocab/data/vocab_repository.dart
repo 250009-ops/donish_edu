@@ -21,7 +21,7 @@ class VocabEntry {
       id: json['id'] as String,
       word: json['word'] as String,
       translationUz: json['translation_uz'] as String,
-      progress: (json['progress'] as num?)?.toDouble() ?? 0.35,
+      progress: (json['progress'] as num?)?.toDouble() ?? 0,
       displayTag: json['display_tag'] as String? ?? 'Saved',
     );
   }

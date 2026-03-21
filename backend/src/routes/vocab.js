@@ -6,6 +6,8 @@ export const vocabRouter = express.Router();
 
 vocabRouter.use(requireAuth);
 
+const QUIZ_PROGRESS_STEP = 0.25;
+
 function parseDayWindow(req) {
   const dayStart = req.query.dayStart;
   const dayEnd = req.query.dayEnd;
@@ -27,16 +29,37 @@ function parseDayWindow(req) {
   return { startIso, endIso };
 }
 
+function clamp01(x) {
+  return Math.min(1, Math.max(0, x));
+}
+
+/** Progress from success/failure counts only (no ui_progress). */
 function progressFromCounts(successCount, failureCount) {
   const sc = successCount ?? 0;
   const fc = failureCount ?? 0;
   const t = sc + fc;
-  if (t === 0) return 0.35;
+  if (t === 0) return 0;
   return Math.min(1, sc / t);
 }
 
-function progressFromStats(row) {
-  if (!row) return 0.35;
+/**
+ * Display progress for API list/stats: prefers stored ui_progress (quiz ladder),
+ * else ratio from counts (flashcards).
+ */
+function progressFromAggregated(agg) {
+  if (!agg) return 0;
+  if (agg.ui_progress != null && Number.isFinite(Number(agg.ui_progress))) {
+    return clamp01(Number(agg.ui_progress));
+  }
+  return progressFromCounts(agg.success_count, agg.failure_count);
+}
+
+/** Current display from a single practice_stats row (or null if none). */
+function displayProgressFromRow(row) {
+  if (!row) return 0;
+  if (row.ui_progress != null && Number.isFinite(Number(row.ui_progress))) {
+    return clamp01(Number(row.ui_progress));
+  }
   return progressFromCounts(row.success_count, row.failure_count);
 }
 
@@ -46,26 +69,21 @@ function aggregateStatsByVocabId(rows) {
   for (const r of rows || []) {
     const vid = r.vocab_id;
     if (!map[vid]) {
-      map[vid] = { success_count: 0, failure_count: 0 };
+      map[vid] = { success_count: 0, failure_count: 0, ui_progress: null };
     }
     map[vid].success_count += Number(r.success_count) || 0;
     map[vid].failure_count += Number(r.failure_count) || 0;
+    if (r.ui_progress != null && Number.isFinite(Number(r.ui_progress))) {
+      map[vid].ui_progress = Number(r.ui_progress);
+    }
   }
   return map;
 }
 
-function applyPracticeAction(action, success, failure) {
+function applyFlashcardAction(action, success, failure) {
   let sc = success;
   let fc = failure;
   switch (action) {
-    case "quiz_correct":
-      sc = Math.max(sc, 100);
-      fc = 0;
-      break;
-    case "quiz_incorrect":
-      fc += 2;
-      sc = Math.max(0, sc - 2);
-      break;
     case "flashcard_easy":
       sc += 5;
       fc = Math.max(0, fc - 1);
@@ -129,7 +147,7 @@ vocabRouter.get("/", async (req, res) => {
   if (ids.length > 0) {
     const { data: statsRows, error: statsErr } = await supabaseAdmin
       .from("practice_stats")
-      .select("vocab_id, success_count, failure_count")
+      .select("vocab_id, success_count, failure_count, ui_progress")
       .eq("user_id", userId)
       .in("vocab_id", ids);
 
@@ -143,7 +161,7 @@ vocabRouter.get("/", async (req, res) => {
 
   const enriched = entries.map((e) => ({
     ...e,
-    progress: progressFromStats(statsByVocab[e.id]),
+    progress: progressFromAggregated(statsByVocab[e.id]),
     display_tag: "Saved"
   }));
 
@@ -221,7 +239,7 @@ vocabRouter.post("/practice", async (req, res) => {
 
   const { data: existingRows, error: findErr } = await supabaseAdmin
     .from("practice_stats")
-    .select("id, success_count, failure_count")
+    .select("id, success_count, failure_count, ui_progress")
     .eq("user_id", userId)
     .eq("vocab_id", vocabId)
     .limit(1);
@@ -233,25 +251,40 @@ vocabRouter.post("/practice", async (req, res) => {
   }
 
   const existing = existingRows?.[0];
-  const baseSc = existing?.success_count ?? 0;
-  const baseFc = existing?.failure_count ?? 0;
-  const next = applyPracticeAction(action, baseSc, baseFc);
-  if (!next) {
-    return res.status(400).json({ error: "Invalid action." });
+  let nextSc = existing?.success_count ?? 0;
+  let nextFc = existing?.failure_count ?? 0;
+  let nextUi;
+
+  if (action === "quiz_correct" || action === "quiz_incorrect") {
+    const current = displayProgressFromRow(existing);
+    nextUi =
+      action === "quiz_correct"
+        ? clamp01(current + QUIZ_PROGRESS_STEP)
+        : clamp01(current - QUIZ_PROGRESS_STEP);
+  } else {
+    const next = applyFlashcardAction(action, nextSc, nextFc);
+    if (!next) {
+      return res.status(400).json({ error: "Invalid action." });
+    }
+    nextSc = next.success_count;
+    nextFc = next.failure_count;
+    nextUi = progressFromCounts(nextSc, nextFc);
   }
 
-  const { success_count: sc, failure_count: fc } = next;
   const nowIso = new Date().toISOString();
-  const progress = progressFromCounts(sc, fc);
+  const progress = nextUi;
+
+  const payload = {
+    success_count: nextSc,
+    failure_count: nextFc,
+    last_seen_at: nowIso,
+    ui_progress: nextUi
+  };
 
   if (existing) {
     const { error: upErr } = await supabaseAdmin
       .from("practice_stats")
-      .update({
-        success_count: sc,
-        failure_count: fc,
-        last_seen_at: nowIso
-      })
+      .update(payload)
       .eq("id", existing.id);
 
     if (upErr) {
@@ -263,9 +296,7 @@ vocabRouter.post("/practice", async (req, res) => {
     const { error: insErr } = await supabaseAdmin.from("practice_stats").insert({
       user_id: userId,
       vocab_id: vocabId,
-      success_count: sc,
-      failure_count: fc,
-      last_seen_at: nowIso
+      ...payload
     });
 
     if (insErr) {
@@ -277,8 +308,8 @@ vocabRouter.post("/practice", async (req, res) => {
 
   return res.json({
     vocab_id: vocabId,
-    success_count: sc,
-    failure_count: fc,
+    success_count: nextSc,
+    failure_count: nextFc,
     progress
   });
 });
@@ -310,7 +341,7 @@ vocabRouter.get("/stats", async (req, res) => {
   if (ids.length > 0) {
     const { data: statsRows, error: statsErr } = await supabaseAdmin
       .from("practice_stats")
-      .select("vocab_id, success_count, failure_count")
+      .select("vocab_id, success_count, failure_count, ui_progress")
       .eq("user_id", userId)
       .in("vocab_id", ids);
 
@@ -322,7 +353,7 @@ vocabRouter.get("/stats", async (req, res) => {
   const total = entries.length;
   let mastered = 0;
   for (const e of entries) {
-    if (progressFromStats(statsByVocab[e.id]) >= 0.85) mastered += 1;
+    if (progressFromAggregated(statsByVocab[e.id]) >= 0.85) mastered += 1;
   }
   const learning = total - mastered;
   const masteryPercent = total === 0 ? 0 : mastered / total;

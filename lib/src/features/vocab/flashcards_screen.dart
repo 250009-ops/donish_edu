@@ -313,8 +313,8 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   }
 }
 
-/// Wraps flashcard in a 3D flip animation when toggling front/back.
-class _FlipFlashcard extends StatefulWidget {
+/// Toggles front/back without a Y-axis 3D rotation — that transform mirrors text on the back.
+class _FlipFlashcard extends StatelessWidget {
   const _FlipFlashcard({
     required this.card,
     required this.showBack,
@@ -324,76 +324,38 @@ class _FlipFlashcard extends StatefulWidget {
   final bool showBack;
 
   @override
-  State<_FlipFlashcard> createState() => _FlipFlashcardState();
-}
-
-class _FlipFlashcardState extends State<_FlipFlashcard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-    if (widget.showBack) _controller.value = 1.0;
-  }
-
-  @override
-  void didUpdateWidget(_FlipFlashcard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.showBack != widget.showBack) {
-      if (widget.showBack) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, _) {
-        final angle = _animation.value * 3.14159;
-        return Transform(
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
           alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateY(angle),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              _FlashcardFace(
-                card: widget.card,
-                isFront: true,
-              ),
-              Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()..rotateY(3.14159),
-                child: _FlashcardFace(
-                  card: widget.card,
-                  isFront: false,
-                ),
-              ),
-            ],
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+            child: child,
           ),
         );
       },
+      child: _FlashcardFace(
+        key: ValueKey<bool>(showBack),
+        card: card,
+        isFront: !showBack,
+      ),
     );
   }
 }
@@ -401,6 +363,7 @@ class _FlipFlashcardState extends State<_FlipFlashcard>
 /// One face of the flashcard (front = word, back = translation).
 class _FlashcardFace extends StatelessWidget {
   const _FlashcardFace({
+    super.key,
     required this.card,
     required this.isFront,
   });
@@ -434,7 +397,7 @@ class _FlashcardFace extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              'English',
+              isFront ? 'English' : 'Uzbek',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
