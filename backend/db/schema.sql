@@ -37,6 +37,7 @@ create table if not exists practice_stats (
   success_count integer not null default 0,
   failure_count integer not null default 0,
   ease_factor double precision,
-  ui_progress double precision
+  ui_progress double precision,
+  flashcard_mastered boolean not null default false
 );
 

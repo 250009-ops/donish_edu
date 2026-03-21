@@ -26,7 +26,7 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   int get _totalWords => _entries.length;
 
   int get _masteredCount =>
-      _entries.where((e) => e.progress >= 0.85).length;
+      _entries.where((e) => e.flashcardMastered).length;
 
   int get _learningCount => _totalWords - _masteredCount;
 

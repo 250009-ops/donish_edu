@@ -7,13 +7,17 @@ class VocabEntry {
     required this.word,
     required this.translationUz,
     required this.progress,
+    required this.flashcardMastered,
     required this.displayTag,
   });
 
   final String id;
   final String word;
   final String translationUz;
+  /// Quiz-only; flashcards do not change this bar.
   final double progress;
+  /// Flashcard Easy = true (counts toward top "mastered"); Hard = false.
+  final bool flashcardMastered;
   final String displayTag;
 
   factory VocabEntry.fromJson(Map<String, dynamic> json) {
@@ -22,6 +26,7 @@ class VocabEntry {
       word: json['word'] as String,
       translationUz: json['translation_uz'] as String,
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
+      flashcardMastered: json['flashcard_mastered'] == true,
       displayTag: json['display_tag'] as String? ?? 'Saved',
     );
   }
