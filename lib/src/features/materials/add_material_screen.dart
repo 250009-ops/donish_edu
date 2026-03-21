@@ -1,3 +1,4 @@
+import 'dart:convert' show base64Encode;
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -146,16 +147,16 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     _notifyFormChanged();
 
     try {
-      await ApiClient.instance.postMultipart(
+      // JSON + base64: reliable on Vercel/serverless (multipart form fields are often dropped).
+      await ApiClient.instance.postJson(
         '/materials',
         authenticated: true,
-        fileField: 'file',
-        fileBytes: raw,
-        fileName: _fileName!,
-        fields: {
+        body: {
           'title': _nameController.text.trim(),
           'material_type': _selectedType!,
           'english_level': _selectedLevel!,
+          'pdf_base64': base64Encode(Uint8List.fromList(raw)),
+          'file_name': _fileName!,
         },
       );
 

@@ -103,90 +103,140 @@ function handleMulter(req, res, next) {
   });
 }
 
-materialsRouter.post("/", handleMulter, async (req, res) => {
-  const title = typeof req.body.title === "string" ? req.body.title.trim() : "";
-  const materialType =
-    typeof req.body.material_type === "string"
-      ? req.body.material_type.trim()
-      : "";
-  const englishLevel =
-    typeof req.body.english_level === "string"
-      ? req.body.english_level.trim()
-      : "";
+/**
+ * Multipart is unreliable on some serverless hosts (empty req.body). The app
+ * sends application/json with pdf_base64 instead.
+ */
+materialsRouter.post(
+  "/",
+  (req, res, next) => {
+    const ct = req.headers["content-type"] || "";
+    if (ct.includes("multipart/form-data")) {
+      return handleMulter(req, res, next);
+    }
+    return next();
+  },
+  async (req, res) => {
+    const title =
+      typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    const materialType =
+      typeof req.body?.material_type === "string"
+        ? req.body.material_type.trim()
+        : "";
+    const englishLevel =
+      typeof req.body?.english_level === "string"
+        ? req.body.english_level.trim()
+        : "";
 
-  if (!title || !materialType || !englishLevel) {
-    return res.status(400).json({
-      error: "title, material_type, and english_level are required."
-    });
+    if (!title || !materialType || !englishLevel) {
+      return res.status(400).json({
+        error: "Please provide title, material type, and English level."
+      });
+    }
+
+    if (!ALLOWED_TYPES.has(materialType)) {
+      return res.status(400).json({ error: "Invalid material_type." });
+    }
+
+    if (!ALLOWED_LEVELS.has(englishLevel)) {
+      return res.status(400).json({ error: "Invalid english_level." });
+    }
+
+    const ct = req.headers["content-type"] || "";
+    let buffer;
+    let originalName = "document.pdf";
+
+    if (ct.includes("application/json")) {
+      const b64 = req.body?.pdf_base64;
+      if (typeof b64 !== "string" || !b64.trim()) {
+        return res.status(400).json({
+          error: "pdf_base64 is required when uploading as JSON."
+        });
+      }
+      try {
+        buffer = Buffer.from(b64, "base64");
+      } catch {
+        return res.status(400).json({ error: "Invalid pdf_base64 encoding." });
+      }
+      if (!buffer.length) {
+        return res.status(400).json({ error: "Decoded PDF is empty." });
+      }
+      if (buffer.length > MAX_FILE_BYTES) {
+        return res.status(400).json({
+          error: `PDF file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`
+        });
+      }
+      if (typeof req.body.file_name === "string" && req.body.file_name.trim()) {
+        originalName = req.body.file_name.trim();
+      }
+    } else {
+      const file = req.file;
+      if (!file || !file.buffer?.length) {
+        return res.status(400).json({
+          error:
+            "PDF file is required. Send multipart/form-data with field \"file\", or application/json with pdf_base64."
+        });
+      }
+      buffer = file.buffer;
+      originalName = file.originalname || "document.pdf";
+    }
+
+    let parsed;
+    try {
+      parsed = await pdfParse(buffer);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("PDF parse error:", e);
+      return res.status(400).json({
+        error:
+          "Could not read this PDF. Try a different file or a text-based PDF."
+      });
+    }
+
+    const numPages = parsed.numpages || 0;
+    if (numPages > MAX_PDF_PAGES) {
+      return res.status(400).json({
+        error: `This PDF has about ${numPages} pages. Please upload a PDF with at most ${MAX_PDF_PAGES} pages.`
+      });
+    }
+
+    const rawText = typeof parsed.text === "string" ? parsed.text : "";
+    const contentText = rawText.replace(/\u0000/g, "").trim();
+
+    if (!contentText.length) {
+      return res.status(400).json({
+        error:
+          "No readable text was found in this PDF. Scanned pages need OCR, which is not supported yet—try a text-based PDF."
+      });
+    }
+
+    const safeName = (originalName || "document.pdf").replace(
+      /[^\w.\- ()]+/g,
+      "_"
+    );
+
+    const { data, error } = await supabaseAdmin
+      .from("materials")
+      .insert({
+        user_id: req.user.id,
+        title,
+        file_path: safeName,
+        page_count: numPages,
+        material_type: materialType,
+        english_level: englishLevel,
+        content_text: contentText
+      })
+      .select(
+        "id, title, file_path, page_count, material_type, english_level, created_at"
+      )
+      .single();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("POST /materials error:", error);
+      return res.status(500).json({ error: "Failed to save material." });
+    }
+
+    return res.status(201).json(data);
   }
-
-  if (!ALLOWED_TYPES.has(materialType)) {
-    return res.status(400).json({ error: "Invalid material_type." });
-  }
-
-  if (!ALLOWED_LEVELS.has(englishLevel)) {
-    return res.status(400).json({ error: "Invalid english_level." });
-  }
-
-  const file = req.file;
-  if (!file || !file.buffer?.length) {
-    return res.status(400).json({ error: "PDF file is required." });
-  }
-
-  let parsed;
-  try {
-    parsed = await pdfParse(file.buffer);
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error("PDF parse error:", e);
-    return res.status(400).json({
-      error: "Could not read this PDF. Try a different file or a text-based PDF."
-    });
-  }
-
-  const numPages = parsed.numpages || 0;
-  if (numPages > MAX_PDF_PAGES) {
-    return res.status(400).json({
-      error: `This PDF has about ${numPages} pages. Please upload a PDF with at most ${MAX_PDF_PAGES} pages.`
-    });
-  }
-
-  const rawText = typeof parsed.text === "string" ? parsed.text : "";
-  const contentText = rawText.replace(/\u0000/g, "").trim();
-
-  if (!contentText.length) {
-    return res.status(400).json({
-      error:
-        "No readable text was found in this PDF. Scanned pages need OCR, which is not supported yet—try a text-based PDF."
-    });
-  }
-
-  const safeName = (file.originalname || "document.pdf").replace(
-    /[^\w.\- ()]+/g,
-    "_"
-  );
-
-  const { data, error } = await supabaseAdmin
-    .from("materials")
-    .insert({
-      user_id: req.user.id,
-      title,
-      file_path: safeName,
-      page_count: numPages,
-      material_type: materialType,
-      english_level: englishLevel,
-      content_text: contentText
-    })
-    .select(
-      "id, title, file_path, page_count, material_type, english_level, created_at"
-    )
-    .single();
-
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error("POST /materials error:", error);
-    return res.status(500).json({ error: "Failed to save material." });
-  }
-
-  return res.status(201).json(data);
-});
+);
