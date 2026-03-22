@@ -30,10 +30,12 @@ class ApiClient {
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
 
     if (response.statusCode >= 400) {
-      final message = decoded is Map<String, dynamic> && decoded['error'] is String
-          ? decoded['error'] as String
+      final map = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+      final message = map['error'] is String
+          ? map['error'] as String
           : 'Request failed with status ${response.statusCode}';
-      throw ApiException(message, statusCode: response.statusCode);
+      final code = map['code'] is String ? map['code'] as String : null;
+      throw ApiException(message, statusCode: response.statusCode, code: code);
     }
 
     return decoded;
@@ -61,10 +63,12 @@ class ApiClient {
       } catch (_) {
         decoded = <String, dynamic>{};
       }
-      final message = decoded is Map<String, dynamic> && decoded['error'] is String
-          ? decoded['error'] as String
+      final map = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+      final message = map['error'] is String
+          ? map['error'] as String
           : 'Request failed with status ${response.statusCode}';
-      throw ApiException(message, statusCode: response.statusCode);
+      final code = map['code'] is String ? map['code'] as String : null;
+      throw ApiException(message, statusCode: response.statusCode, code: code);
     }
   }
 
@@ -90,10 +94,12 @@ class ApiClient {
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
 
     if (response.statusCode >= 400) {
-      final message = decoded is Map<String, dynamic> && decoded['error'] is String
-          ? decoded['error'] as String
+      final map = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+      final message = map['error'] is String
+          ? map['error'] as String
           : 'Request failed with status ${response.statusCode}';
-      throw ApiException(message, statusCode: response.statusCode);
+      final code = map['code'] is String ? map['code'] as String : null;
+      throw ApiException(message, statusCode: response.statusCode, code: code);
     }
 
     if (decoded is Map<String, dynamic>) {
@@ -131,10 +137,12 @@ class ApiClient {
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
 
     if (response.statusCode >= 400) {
-      final message = decoded is Map<String, dynamic> && decoded['error'] is String
-          ? decoded['error'] as String
+      final map = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+      final message = map['error'] is String
+          ? map['error'] as String
           : 'Request failed with status ${response.statusCode}';
-      throw ApiException(message, statusCode: response.statusCode);
+      final code = map['code'] is String ? map['code'] as String : null;
+      throw ApiException(message, statusCode: response.statusCode, code: code);
     }
 
     if (decoded is Map<String, dynamic>) {
@@ -145,10 +153,12 @@ class ApiClient {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+  /// Optional machine-readable code from API (e.g. `pdf_no_extractable_text`).
+  final String? code;
 
   @override
   String toString() => message;

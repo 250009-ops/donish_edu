@@ -225,8 +225,9 @@ materialsRouter.post(
       // eslint-disable-next-line no-console
       console.error("PDF parse error:", e);
       return res.status(400).json({
+        code: "pdf_unreadable",
         error:
-          "Could not read this PDF. Try a different file or a text-based PDF."
+          "Could not read this PDF. The file may be corrupted, encrypted, or not a real PDF. Try another file or export again from your source app."
       });
     }
 
@@ -242,8 +243,9 @@ materialsRouter.post(
 
     if (!contentText.length) {
       return res.status(400).json({
+        code: "pdf_no_extractable_text",
         error:
-          "No readable text was found in this PDF. Scanned pages need OCR, which is not supported yet—try a text-based PDF."
+          "This PDF has no text we can read. It may be a scan or photo of a page (image-only). Donish does not support OCR yet—use a PDF with selectable text (e.g. export “Print to PDF” from Word or Google Docs)."
       });
     }
 
