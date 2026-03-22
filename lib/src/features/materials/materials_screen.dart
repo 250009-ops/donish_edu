@@ -32,6 +32,7 @@ class MaterialSummary {
     required this.materialType,
     required this.englishLevel,
     this.pageCount,
+    this.createdAt,
   });
 
   final String id;
@@ -39,16 +40,49 @@ class MaterialSummary {
   final String materialType;
   final String englishLevel;
   final int? pageCount;
+  /// Server `created_at` (upload time), UTC from API; shown in local time in the list.
+  final DateTime? createdAt;
 
   factory MaterialSummary.fromJson(Map<String, dynamic> json) {
+    DateTime? created;
+    final raw = json['created_at'];
+    if (raw is String && raw.isNotEmpty) {
+      created = DateTime.tryParse(raw);
+    }
+
     return MaterialSummary(
       id: json['id'] as String,
       title: json['title'] as String? ?? 'Untitled',
       materialType: json['material_type'] as String? ?? 'Other',
       englishLevel: json['english_level'] as String? ?? 'B1',
       pageCount: json['page_count'] as int?,
+      createdAt: created,
     );
   }
+}
+
+/// Compact local date + 24h time for list cards (e.g. `Oct 24, 14:30`).
+String _formatMaterialListTimestamp(DateTime? utc) {
+  if (utc == null) return '';
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final l = utc.toLocal();
+  final mon = months[l.month - 1];
+  final hh = l.hour.toString().padLeft(2, '0');
+  final mm = l.minute.toString().padLeft(2, '0');
+  return '$mon ${l.day}, $hh:$mm';
 }
 
 class MaterialsScreen extends StatefulWidget {
@@ -644,6 +678,7 @@ class _MaterialCard extends StatelessWidget {
     final level = material.englishLevel;
     final lc = _levelAccentColor(level);
     final lb = _levelAccentBackground(level);
+    final uploadedLabel = _formatMaterialListTimestamp(material.createdAt);
 
     return Container(
       decoration: BoxDecoration(
@@ -755,6 +790,19 @@ class _MaterialCard extends StatelessWidget {
                               ),
                             ],
                           ),
+                          if (uploadedLabel.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              uploadedLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF9CA3AF),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
