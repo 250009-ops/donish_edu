@@ -3,6 +3,10 @@ import express from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
+import {
+  authenticatedApiLimiter,
+  extractPreviewLimiter
+} from "../middlewares/rateLimits.js";
 
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
@@ -47,6 +51,30 @@ const upload = multer({
 });
 
 materialsRouter.use(requireAuth);
+materialsRouter.use(authenticatedApiLimiter);
+
+function parseMaterialsListQuery(req) {
+  let limit = parseInt(String(req.query.limit ?? "50"), 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = 50;
+  if (limit > 100) limit = 100;
+
+  let offset = parseInt(String(req.query.offset ?? "0"), 10);
+  if (!Number.isFinite(offset) || offset < 0) offset = 0;
+  if (offset > 1_000_000) offset = 1_000_000;
+
+  const materialType =
+    typeof req.query.material_type === "string"
+      ? req.query.material_type.trim()
+      : "";
+  const englishLevel =
+    typeof req.query.english_level === "string"
+      ? req.query.english_level.trim()
+      : "";
+  const qRaw =
+    typeof req.query.q === "string" ? req.query.q.trim().slice(0, 200) : "";
+
+  return { limit, offset, materialType, englishLevel, qRaw };
+}
 
 /**
  * @param {Buffer} buffer
@@ -139,7 +167,7 @@ function validateMaterialMeta(title, materialType, englishLevel, res) {
 }
 
 /** JSON: pdf_base64 — parse only, no DB row. Client edits text then POST /materials with content_text. */
-materialsRouter.post("/extract-preview", async (req, res) => {
+materialsRouter.post("/extract-preview", extractPreviewLimiter, async (req, res) => {
   const b64 = req.body?.pdf_base64;
   if (typeof b64 !== "string" || !b64.trim()) {
     return res.status(400).json({ error: "pdf_base64 is required." });
@@ -164,13 +192,34 @@ materialsRouter.post("/extract-preview", async (req, res) => {
 });
 
 materialsRouter.get("/", async (req, res) => {
-  const { data, error } = await supabaseAdmin
+  const { limit, offset, materialType, englishLevel, qRaw } =
+    parseMaterialsListQuery(req);
+
+  const fetchSize = limit + 1;
+  const rangeEnd = offset + fetchSize - 1;
+
+  let query = supabaseAdmin
     .from("materials")
     .select(
       "id, title, file_path, page_count, material_type, english_level, created_at"
     )
-    .eq("user_id", req.user.id)
-    .order("created_at", { ascending: false });
+    .eq("user_id", req.user.id);
+
+  if (materialType && ALLOWED_TYPES.has(materialType)) {
+    query = query.eq("material_type", materialType);
+  }
+  if (englishLevel && ALLOWED_LEVELS.has(englishLevel)) {
+    query = query.eq("english_level", englishLevel);
+  }
+
+  const safeQ = qRaw.replace(/[%_\\]/g, " ").trim();
+  if (safeQ.length > 0) {
+    query = query.ilike("title", `%${safeQ}%`);
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, rangeEnd);
 
   if (error) {
     // eslint-disable-next-line no-console
@@ -178,7 +227,11 @@ materialsRouter.get("/", async (req, res) => {
     return res.status(500).json({ error: "Failed to load materials." });
   }
 
-  return res.json(data || []);
+  const rows = data || [];
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+
+  return res.json({ items, has_more: hasMore });
 });
 
 materialsRouter.get("/:id", async (req, res) => {
@@ -189,7 +242,9 @@ materialsRouter.get("/:id", async (req, res) => {
 
   const { data, error } = await supabaseAdmin
     .from("materials")
-    .select("*")
+    .select(
+      "id, user_id, title, file_path, page_count, material_type, english_level, content_text, created_at"
+    )
     .eq("id", id)
     .eq("user_id", req.user.id)
     .maybeSingle();

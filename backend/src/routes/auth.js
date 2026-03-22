@@ -3,10 +3,11 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { config } from "../config.js";
+import { loginLimiter } from "../middlewares/rateLimits.js";
 
 export const authRouter = express.Router();
 
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", loginLimiter, async (req, res) => {
   const { id, password } = req.body || {};
   const telegramId = id !== undefined && id !== null ? Number(id) : NaN;
 

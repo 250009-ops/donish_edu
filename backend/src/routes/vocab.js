@@ -1,10 +1,12 @@
 import express from "express";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
+import { authenticatedApiLimiter } from "../middlewares/rateLimits.js";
 
 export const vocabRouter = express.Router();
 
 vocabRouter.use(requireAuth);
+vocabRouter.use(authenticatedApiLimiter);
 
 const QUIZ_PROGRESS_STEP = 0.25;
 

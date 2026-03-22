@@ -1,3 +1,5 @@
+import 'dart:async' show Timer;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -93,47 +95,167 @@ class MaterialsScreen extends StatefulWidget {
 }
 
 class _MaterialsScreenState extends State<MaterialsScreen> {
+  static const int _pageSize = 40;
+
   String _selectedType = _typeOptions.first;
   String _selectedLevel = _levelOptions.first;
   String _searchQuery = '';
 
-  List<MaterialSummary> _all = [];
+  final ScrollController _scrollController = ScrollController();
+  Timer? _searchDebounce;
+
+  List<MaterialSummary> _items = [];
+  int _nextOffset = 0;
+  bool _hasMore = false;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _loadMoreInProgress = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _scrollController.addListener(_onScroll);
+    _fetchMaterials(reset: true);
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasActiveFilters =>
+      _selectedType != _typeOptions.first ||
+      _selectedLevel != _levelOptions.first ||
+      _searchQuery.trim().isNotEmpty;
+
+  void _onScroll() {
+    if (!mounted) return;
+    if (_loadMoreInProgress ||
+        _loadingMore ||
+        !_hasMore ||
+        _loading ||
+        _error != null) {
+      return;
+    }
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 360) {
+      _fetchMaterials(reset: false);
+    }
+  }
+
+  void _reloadFromFilters() {
+    _searchDebounce?.cancel();
+    _fetchMaterials(reset: true);
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _fetchMaterials(reset: true);
     });
+  }
+
+  Future<void> _fetchMaterials({bool reset = false}) async {
+    if (reset) {
+      _loadMoreInProgress = false;
+      setState(() {
+        _loading = true;
+        _error = null;
+        _items = [];
+        _hasMore = false;
+        _nextOffset = 0;
+        _loadingMore = false;
+      });
+    } else {
+      if (_loadMoreInProgress || !_hasMore || _loading || _error != null) {
+        return;
+      }
+      _loadMoreInProgress = true;
+      setState(() => _loadingMore = true);
+    }
+
+    final offset = reset ? 0 : _nextOffset;
+    final params = <String, String>{
+      'limit': '$_pageSize',
+      'offset': '$offset',
+    };
+    final q = _searchQuery.trim();
+    if (q.isNotEmpty) {
+      params['q'] = q;
+    }
+    if (_selectedType != _typeOptions.first) {
+      params['material_type'] = _selectedType;
+    }
+    if (_selectedLevel != _levelOptions.first) {
+      params['english_level'] = _selectedLevel;
+    }
+
     try {
       final raw = await ApiClient.instance.getJson(
         '/materials',
         authenticated: true,
+        queryParameters: params,
       );
       if (!mounted) return;
-      final list = raw is List
-          ? raw
-              .whereType<Map<String, dynamic>>()
+
+      if (raw is! Map<String, dynamic>) {
+        setState(() {
+          _error = 'Unexpected response from server.';
+          _loading = false;
+          _loadingMore = false;
+          _loadMoreInProgress = false;
+          if (reset) _items = [];
+        });
+        return;
+      }
+
+      final batch = (raw['items'] as List?)
+              ?.whereType<Map<String, dynamic>>()
               .map(MaterialSummary.fromJson)
-              .toList()
-          : <MaterialSummary>[];
+              .toList() ??
+          <MaterialSummary>[];
+      final hasMore = raw['has_more'] == true;
+
       setState(() {
-        _all = list;
+        if (reset) {
+          _items = batch;
+        } else {
+          _items = [..._items, ...batch];
+        }
+        _hasMore = hasMore;
+        _nextOffset = reset ? batch.length : _nextOffset + batch.length;
         _loading = false;
+        _loadingMore = false;
+        _loadMoreInProgress = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _loadingMore = false;
+        _loadMoreInProgress = false;
+        if (reset) {
+          _error = e.toString();
+          _items = [];
+        }
         _loading = false;
       });
+      if (!reset && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not load more: $e',
+              style: GoogleFonts.inter(),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -176,7 +298,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         authenticated: true,
       );
       if (!mounted) return;
-      setState(() => _all.removeWhere((m) => m.id == material.id));
+      setState(() => _items.removeWhere((m) => m.id == material.id));
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -201,22 +323,6 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     }
   }
 
-  List<MaterialSummary> get _filteredMaterials {
-    return _all.where((material) {
-      final query = _searchQuery.trim().toLowerCase();
-      final matchesSearch =
-          query.isEmpty || material.title.toLowerCase().contains(query);
-
-      final matchesType = _selectedType == _typeOptions.first ||
-          material.materialType == _selectedType;
-
-      final matchesLevel = _selectedLevel == _levelOptions.first ||
-          material.englishLevel == _selectedLevel;
-
-      return matchesSearch && matchesType && matchesLevel;
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -226,9 +332,15 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
           _SearchAndFilters(
             selectedType: _selectedType,
             selectedLevel: _selectedLevel,
-            onTypeChanged: (v) => setState(() => _selectedType = v!),
-            onLevelChanged: (v) => setState(() => _selectedLevel = v!),
-            onSearchChanged: (value) => setState(() => _searchQuery = value),
+            onTypeChanged: (v) {
+              setState(() => _selectedType = v!);
+              _reloadFromFilters();
+            },
+            onLevelChanged: (v) {
+              setState(() => _selectedLevel = v!);
+              _reloadFromFilters();
+            },
+            onSearchChanged: _onSearchChanged,
           ),
           Expanded(child: _buildBody()),
         ],
@@ -244,7 +356,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         ),
       );
     }
-    if (_error != null) {
+    if (_error != null && _items.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -263,7 +375,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
               ),
               const SizedBox(height: 16),
               TextButton.icon(
-                onPressed: _load,
+                onPressed: () => _fetchMaterials(reset: true),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Try again'),
               ),
@@ -272,34 +384,62 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         ),
       );
     }
-    final items = _filteredMaterials;
-    if (items.isEmpty && _all.isEmpty) {
+    if (_items.isEmpty && !_hasActiveFilters) {
       return _EmptyMaterialsState();
     }
-    if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'No materials match your filters.',
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              color: const Color(0xFF6B7280),
+    if (_items.isEmpty) {
+      return RefreshIndicator(
+        color: _kViolet,
+        onRefresh: () => _fetchMaterials(reset: true),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.sizeOf(context).height * 0.25,
             ),
-          ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No materials match your filters.',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
+    final footer = _loadingMore ? 1 : 0;
     return RefreshIndicator(
       color: _kViolet,
-      onRefresh: _load,
+      onRefresh: () => _fetchMaterials(reset: true),
       child: ListView.separated(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: items.length,
+        itemCount: _items.length + footer,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final material = items[index];
+          if (index >= _items.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: _kViolet,
+                  ),
+                ),
+              ),
+            );
+          }
+          final material = _items[index];
           return _MaterialCard(
             material: material,
             onDelete: () => _confirmAndDeleteMaterial(context, material),

@@ -11,6 +11,7 @@ const botToken = process.env.TELEGRAM_BOT_TOKEN;
 const apiBaseUrl =
   process.env.API_BASE_URL ||
   "https://donish-edu.vercel.app";
+const botSharedSecret = process.env.BOT_SHARED_SECRET || "";
 
 if (!botToken) {
   // eslint-disable-next-line no-console
@@ -60,10 +61,14 @@ bot.on("text", async (ctx) => {
       const password = message;
 
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (botSharedSecret) {
+          headers["X-Bot-Secret"] = botSharedSecret;
+        }
         const createRes = await axios.post(
           `${apiBaseUrl}/bot/create-user`,
           { telegram_id: chatId, password },
-          { timeout: 15000, headers: { "Content-Type": "application/json" } }
+          { timeout: 15000, headers }
         );
 
         const telegramId = createRes.data?.telegram_id ?? chatId;

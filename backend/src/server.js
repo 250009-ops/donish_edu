@@ -1,14 +1,18 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { config } from "./config.js";
+import { config, validateDeploymentConfig } from "./config.js";
 import { authRouter } from "./routes/auth.js";
 import { botRouter } from "./routes/bot.js";
 import { materialsRouter } from "./routes/materials.js";
 import { vocabRouter } from "./routes/vocab.js";
 import { translateRouter } from "./routes/translate.js";
+import { trustProxy } from "./middlewares/rateLimits.js";
+
+validateDeploymentConfig();
 
 const app = express();
+trustProxy(app);
 
 app.use(helmet());
 app.use(
@@ -26,7 +30,7 @@ app.get("/", (req, res) => {
       "/health",
       "/auth",
       "/bot",
-      "/materials",
+      "/materials (GET paginated: ?limit&offset&q&material_type&english_level)",
       "/materials/extract-preview (POST, JSON pdf_base64)",
       "/materials/:id (GET, DELETE)",
       "/vocab",

@@ -18,9 +18,18 @@ class ApiClient {
 
   Future<dynamic> getJson(
     String path, {
+    Map<String, String>? queryParameters,
     bool authenticated = false,
   }) async {
-    final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
+    final base = Uri.parse('${AppConfig.apiBaseUrl}$path');
+    final uri = queryParameters == null || queryParameters.isEmpty
+        ? base
+        : base.replace(
+            queryParameters: {
+              ...base.queryParameters,
+              ...queryParameters,
+            },
+          );
     final headers = <String, String>{};
     if (authenticated && _token != null) {
       headers['Authorization'] = 'Bearer $_token';

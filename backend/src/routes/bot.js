@@ -1,10 +1,16 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "../supabaseClient.js";
+import { botCreateUserLimiter } from "../middlewares/rateLimits.js";
+import { requireBotSharedSecret } from "../middlewares/botSecretMiddleware.js";
 
 export const botRouter = express.Router();
 
-botRouter.post("/create-user", async (req, res) => {
+botRouter.post(
+  "/create-user",
+  botCreateUserLimiter,
+  requireBotSharedSecret,
+  async (req, res) => {
   const { telegram_id, password } = req.body || {};
   const tid = telegram_id !== undefined && telegram_id !== null ? Number(telegram_id) : NaN;
 
@@ -42,5 +48,6 @@ botRouter.post("/create-user", async (req, res) => {
     id: data.id,
     telegram_id: data.telegram_id
   });
-});
+  }
+);
 

@@ -2,10 +2,12 @@ import express from "express";
 import axios from "axios";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import { config } from "../config.js";
+import { translateLimiter } from "../middlewares/rateLimits.js";
 
 export const translateRouter = express.Router();
 
 translateRouter.use(requireAuth);
+translateRouter.use(translateLimiter);
 
 translateRouter.post("/", async (req, res) => {
   const { word, context_sentence } = req.body || {};
