@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
 import '../../util/material_file_reader.dart';
+import 'material_pdf_help_dialog.dart';
+import 'material_text_review_screen.dart';
 
 const Color _kViolet = Color(0xFF4C6FFF);
 
@@ -147,24 +149,50 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     _notifyFormChanged();
 
     try {
-      // JSON + base64: reliable on Vercel/serverless (multipart form fields are often dropped).
-      await ApiClient.instance.postJson(
-        '/materials',
+      // Server extracts text once; user edits on review screen; final POST sends content_text only.
+      final preview = await ApiClient.instance.postJson(
+        '/materials/extract-preview',
         authenticated: true,
         body: {
-          'title': _nameController.text.trim(),
-          'material_type': _selectedType!,
-          'english_level': _selectedLevel!,
           'pdf_base64': base64Encode(Uint8List.fromList(raw)),
           'file_name': _fileName!,
         },
       );
 
+      final extracted = preview['extracted_text'];
+      if (extracted is! String || extracted.isEmpty) {
+        if (!mounted) return;
+        showMaterialUploadError(
+          context,
+          const ApiException('No text returned from the server.'),
+        );
+        return;
+      }
+
+      final pcRaw = preview['page_count'];
+      final pageCount = pcRaw is int
+          ? pcRaw
+          : (pcRaw is num ? pcRaw.toInt() : 0);
+
       if (!mounted) return;
-      widget.onUploadSuccess();
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (context) => MaterialTextReviewScreen(
+            initialExtractedText: extracted,
+            pageCount: pageCount,
+            fileName: _fileName!,
+            title: _nameController.text.trim(),
+            materialType: _selectedType!,
+            englishLevel: _selectedLevel!,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (saved == true) widget.onUploadSuccess();
     } catch (e) {
       if (!mounted) return;
-      _showMaterialUploadError(context, e);
+      showMaterialUploadError(context, e);
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
@@ -242,124 +270,6 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
       ),
     );
   }
-}
-
-/// Explains text-based PDFs vs scans (proactive help + reusable for “About”).
-void showPdfMaterialsHelpDialog(BuildContext context) {
-  showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(
-        'Which PDFs work?',
-        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
-      ),
-      content: SingleChildScrollView(
-        child: Text(
-          'Donish reads real text inside your PDF—not pictures of pages.\n\n'
-          'Works well:\n'
-          '• PDFs exported from Word, Google Docs, or websites that offer a download.\n'
-          '• “Print to PDF” from anything where you can select and copy text.\n\n'
-          'Often fails:\n'
-          '• Scans or photos saved as PDF (image-only pages).\n'
-          '• Files that need OCR (we do not support OCR yet).\n\n'
-          'Limits: text-based PDF, up to about 10 pages and 4 MB.',
-          style: GoogleFonts.inter(fontSize: 14, height: 1.45, color: const Color(0xFF374151)),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: Text('Got it', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showMaterialUploadError(BuildContext context, Object error) {
-  if (error is ApiException) {
-    final msg = error.message;
-    final noExtractableText = error.code == 'pdf_no_extractable_text' ||
-        msg.contains('No readable text') ||
-        msg.contains('no text we can read');
-    final unreadablePdf = error.code == 'pdf_unreadable' ||
-        (msg.contains('Could not read this PDF') && !noExtractableText);
-
-    if (noExtractableText) {
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(
-            'No text found in this PDF',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
-          ),
-          content: SingleChildScrollView(
-            child: Text(
-              'This file looks like a scan or image-only PDF: there are no words for us to read. '
-              'Donish does not use OCR (photo-to-text) yet.\n\n'
-              'Try:\n'
-              '• A PDF downloaded from a source that provides real text.\n'
-              '• Export or “Print to PDF” from Word, Google Docs, or similar.\n'
-              '• Another version of the same content if you have one.\n\n'
-              'Details: ${error.message}',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                height: 1.45,
-                color: const Color(0xFF374151),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('OK', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-    if (unreadablePdf) {
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(
-            'Could not read this PDF',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
-          ),
-          content: SingleChildScrollView(
-            child: Text(
-              'The file might be corrupted, password-protected, or not a valid PDF. '
-              'Try re-downloading it or exporting again from the original app.\n\n'
-              'Details: ${error.message}',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                height: 1.45,
-                color: const Color(0xFF374151),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('OK', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-  }
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        error.toString(),
-        style: GoogleFonts.inter(),
-      ),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
 }
 
 class _Label extends StatelessWidget {

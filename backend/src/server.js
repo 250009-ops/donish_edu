@@ -27,6 +27,7 @@ app.get("/", (req, res) => {
       "/auth",
       "/bot",
       "/materials",
+      "/materials/extract-preview (POST, JSON pdf_base64)",
       "/materials/:id (GET, DELETE)",
       "/vocab",
       "/vocab/practice",

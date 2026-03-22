@@ -15,6 +15,9 @@ const MAX_PDF_PAGES = 10;
 /** Stay under typical serverless body limits (~4.5 MB on Vercel hobby). */
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
+/** Stored reader text upper bound (characters). */
+const MAX_CONTENT_TEXT_CHARS = 800_000;
+
 const ALLOWED_TYPES = new Set([
   "Article",
   "Short Story",
@@ -44,6 +47,121 @@ const upload = multer({
 });
 
 materialsRouter.use(requireAuth);
+
+/**
+ * @param {Buffer} buffer
+ * @returns {Promise<{ ok: true, contentText: string, numPages: number } | { ok: false, status: number, json: object }>}
+ */
+async function extractTextFromPdfBuffer(buffer) {
+  if (!buffer?.length) {
+    return {
+      ok: false,
+      status: 400,
+      json: { error: "Decoded PDF is empty." }
+    };
+  }
+  if (buffer.length > MAX_FILE_BYTES) {
+    return {
+      ok: false,
+      status: 400,
+      json: {
+        error: `PDF file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`
+      }
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = await pdfParse(buffer);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("PDF parse error:", e);
+    return {
+      ok: false,
+      status: 400,
+      json: {
+        code: "pdf_unreadable",
+        error:
+          "Could not read this PDF. The file may be corrupted, encrypted, or not a real PDF. Try another file or export again from your source app."
+      }
+    };
+  }
+
+  const numPages = parsed.numpages || 0;
+  if (numPages > MAX_PDF_PAGES) {
+    return {
+      ok: false,
+      status: 400,
+      json: {
+        error: `This PDF has about ${numPages} pages. Please upload a PDF with at most ${MAX_PDF_PAGES} pages.`
+      }
+    };
+  }
+
+  const rawText = typeof parsed.text === "string" ? parsed.text : "";
+  const contentText = rawText.replace(/\u0000/g, "").trim();
+
+  if (!contentText.length) {
+    return {
+      ok: false,
+      status: 400,
+      json: {
+        code: "pdf_no_extractable_text",
+        error:
+          "This PDF has no text we can read. It may be a scan or photo of a page (image-only). Donish does not support OCR yet—use a PDF with selectable text (e.g. export “Print to PDF” from Word or Google Docs)."
+      }
+    };
+  }
+
+  return { ok: true, contentText, numPages };
+}
+
+function safeFileName(originalName) {
+  return (originalName || "document.pdf").replace(/[^\w.\- ()]+/g, "_");
+}
+
+function validateMaterialMeta(title, materialType, englishLevel, res) {
+  if (!title || !materialType || !englishLevel) {
+    res.status(400).json({
+      error: "Please provide title, material type, and English level."
+    });
+    return false;
+  }
+  if (!ALLOWED_TYPES.has(materialType)) {
+    res.status(400).json({ error: "Invalid material_type." });
+    return false;
+  }
+  if (!ALLOWED_LEVELS.has(englishLevel)) {
+    res.status(400).json({ error: "Invalid english_level." });
+    return false;
+  }
+  return true;
+}
+
+/** JSON: pdf_base64 — parse only, no DB row. Client edits text then POST /materials with content_text. */
+materialsRouter.post("/extract-preview", async (req, res) => {
+  const b64 = req.body?.pdf_base64;
+  if (typeof b64 !== "string" || !b64.trim()) {
+    return res.status(400).json({ error: "pdf_base64 is required." });
+  }
+
+  let buffer;
+  try {
+    buffer = Buffer.from(b64, "base64");
+  } catch {
+    return res.status(400).json({ error: "Invalid pdf_base64 encoding." });
+  }
+
+  const result = await extractTextFromPdfBuffer(buffer);
+  if (!result.ok) {
+    return res.status(result.status).json(result.json);
+  }
+
+  return res.json({
+    extracted_text: result.contentText,
+    page_count: result.numPages
+  });
+});
 
 materialsRouter.get("/", async (req, res) => {
   const { data, error } = await supabaseAdmin
@@ -141,8 +259,9 @@ function handleMulter(req, res, next) {
 }
 
 /**
- * Multipart is unreliable on some serverless hosts (empty req.body). The app
- * sends application/json with pdf_base64 instead.
+ * POST /materials
+ * - JSON with non-empty content_text: save edited extract (no PDF re-upload).
+ * - JSON with pdf_base64 or multipart file: parse PDF and save.
  */
 materialsRouter.post(
   "/",
@@ -165,21 +284,69 @@ materialsRouter.post(
         ? req.body.english_level.trim()
         : "";
 
-    if (!title || !materialType || !englishLevel) {
-      return res.status(400).json({
-        error: "Please provide title, material type, and English level."
-      });
-    }
-
-    if (!ALLOWED_TYPES.has(materialType)) {
-      return res.status(400).json({ error: "Invalid material_type." });
-    }
-
-    if (!ALLOWED_LEVELS.has(englishLevel)) {
-      return res.status(400).json({ error: "Invalid english_level." });
+    if (!validateMaterialMeta(title, materialType, englishLevel, res)) {
+      return;
     }
 
     const ct = req.headers["content-type"] || "";
+
+    const contentTextRaw = req.body?.content_text;
+    const trimmedClientText =
+      typeof contentTextRaw === "string"
+        ? contentTextRaw.replace(/\u0000/g, "").trim()
+        : "";
+
+    if (trimmedClientText.length > 0) {
+      if (ct.includes("multipart/form-data")) {
+        return res.status(400).json({
+          error:
+            "Use JSON with content_text to save edited text, not multipart."
+        });
+      }
+      if (trimmedClientText.length > MAX_CONTENT_TEXT_CHARS) {
+        return res.status(400).json({
+          error: `Text is too long (max ${MAX_CONTENT_TEXT_CHARS} characters).`
+        });
+      }
+
+      let pageCount = 0;
+      const pc = req.body?.page_count;
+      if (pc != null && Number.isFinite(Number(pc))) {
+        const n = Math.floor(Number(pc));
+        if (n > 0 && n <= MAX_PDF_PAGES) pageCount = n;
+      }
+
+      const originalName =
+        typeof req.body?.file_name === "string" && req.body.file_name.trim()
+          ? req.body.file_name.trim()
+          : "document.pdf";
+      const safeName = safeFileName(originalName);
+
+      const { data, error } = await supabaseAdmin
+        .from("materials")
+        .insert({
+          user_id: req.user.id,
+          title,
+          file_path: safeName,
+          page_count: pageCount,
+          material_type: materialType,
+          english_level: englishLevel,
+          content_text: trimmedClientText
+        })
+        .select(
+          "id, title, file_path, page_count, material_type, english_level, created_at"
+        )
+        .single();
+
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error("POST /materials (content_text) error:", error);
+        return res.status(500).json({ error: "Failed to save material." });
+      }
+
+      return res.status(201).json(data);
+    }
+
     let buffer;
     let originalName = "document.pdf";
 
@@ -187,21 +354,14 @@ materialsRouter.post(
       const b64 = req.body?.pdf_base64;
       if (typeof b64 !== "string" || !b64.trim()) {
         return res.status(400).json({
-          error: "pdf_base64 is required when uploading as JSON."
+          error:
+            "Provide pdf_base64 to upload a PDF, or content_text with your edited extract."
         });
       }
       try {
         buffer = Buffer.from(b64, "base64");
       } catch {
         return res.status(400).json({ error: "Invalid pdf_base64 encoding." });
-      }
-      if (!buffer.length) {
-        return res.status(400).json({ error: "Decoded PDF is empty." });
-      }
-      if (buffer.length > MAX_FILE_BYTES) {
-        return res.status(400).json({
-          error: `PDF file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`
-        });
       }
       if (typeof req.body.file_name === "string" && req.body.file_name.trim()) {
         originalName = req.body.file_name.trim();
@@ -211,48 +371,19 @@ materialsRouter.post(
       if (!file || !file.buffer?.length) {
         return res.status(400).json({
           error:
-            "PDF file is required. Send multipart/form-data with field \"file\", or application/json with pdf_base64."
+            "PDF file is required. Send multipart/form-data with field \"file\", or application/json with pdf_base64 or content_text."
         });
       }
       buffer = file.buffer;
       originalName = file.originalname || "document.pdf";
     }
 
-    let parsed;
-    try {
-      parsed = await pdfParse(buffer);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error("PDF parse error:", e);
-      return res.status(400).json({
-        code: "pdf_unreadable",
-        error:
-          "Could not read this PDF. The file may be corrupted, encrypted, or not a real PDF. Try another file or export again from your source app."
-      });
+    const result = await extractTextFromPdfBuffer(buffer);
+    if (!result.ok) {
+      return res.status(result.status).json(result.json);
     }
 
-    const numPages = parsed.numpages || 0;
-    if (numPages > MAX_PDF_PAGES) {
-      return res.status(400).json({
-        error: `This PDF has about ${numPages} pages. Please upload a PDF with at most ${MAX_PDF_PAGES} pages.`
-      });
-    }
-
-    const rawText = typeof parsed.text === "string" ? parsed.text : "";
-    const contentText = rawText.replace(/\u0000/g, "").trim();
-
-    if (!contentText.length) {
-      return res.status(400).json({
-        code: "pdf_no_extractable_text",
-        error:
-          "This PDF has no text we can read. It may be a scan or photo of a page (image-only). Donish does not support OCR yet—use a PDF with selectable text (e.g. export “Print to PDF” from Word or Google Docs)."
-      });
-    }
-
-    const safeName = (originalName || "document.pdf").replace(
-      /[^\w.\- ()]+/g,
-      "_"
-    );
+    const safeName = safeFileName(originalName);
 
     const { data, error } = await supabaseAdmin
       .from("materials")
@@ -260,10 +391,10 @@ materialsRouter.post(
         user_id: req.user.id,
         title,
         file_path: safeName,
-        page_count: numPages,
+        page_count: result.numPages,
         material_type: materialType,
         english_level: englishLevel,
-        content_text: contentText
+        content_text: result.contentText
       })
       .select(
         "id, title, file_path, page_count, material_type, english_level, created_at"
