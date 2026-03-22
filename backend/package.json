@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "bot": "node bot/index.js"
+    "bot": "node bot/index.js",
+    "secrets": "node scripts/generate-env-secrets.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.0",
