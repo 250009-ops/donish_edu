@@ -1,4 +1,4 @@
-package com.example.donish_app
+package com.donish.edu
 
 import io.flutter.embedding.android.FlutterActivity
 
