@@ -1,0 +1,798 @@
+
+sm    18079640 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libflutter.so.sym
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    13330772 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.debugsymbols/armeabi-v7a/libflutter.so.sym
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    17182064 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.debugsymbols/x86_64/libflutter.so.sym
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        57 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.gradle/app-metadata.properties
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      5747 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.libraries/dependencies.pb
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    6753233 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       192 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        70 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools.build.profiles/baseline.profm
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      1593 Thu Jan 01 01:01:02 UTC 1981 BUNDLE-METADATA/com.android.tools/r8.json
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       628 Thu Jan 01 01:01:02 UTC 1981 BundleConfig.pb
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       195 Thu Jan 01 01:01:02 UTC 1981 base/assets.pb
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       176 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/AssetManifest.bin
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       208 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/FontManifest.json
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    106503 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/NOTICES.Z
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        45 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/NativeAssetsManifest.json
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    138191 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/assets/images/logo.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      6392 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/fonts/MaterialIcons-Regular.otf
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    257628 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm     21328 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/shaders/ink_sparkle.frag
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm     17368 Thu Jan 01 01:01:02 UTC 1981 base/assets/flutter_assets/shaders/stretch_effect.frag
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    825984 Thu Jan 01 01:01:02 UTC 1981 base/dex/classes.dex
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    5505968 Thu Jan 01 01:01:02 UTC 1981 base/lib/arm64-v8a/libapp.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    11317824 Thu Jan 01 01:01:02 UTC 1981 base/lib/arm64-v8a/libflutter.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    6144604 Thu Jan 01 01:01:02 UTC 1981 base/lib/armeabi-v7a/libapp.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    8276468 Thu Jan 01 01:01:02 UTC 1981 base/lib/armeabi-v7a/libflutter.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    5702576 Thu Jan 01 01:01:02 UTC 1981 base/lib/x86_64/libapp.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm    12564656 Thu Jan 01 01:01:02 UTC 1981 base/lib/x86_64/libflutter.so
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      7639 Thu Jan 01 01:01:02 UTC 1981 base/manifest/AndroidManifest.xml
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        68 Thu Jan 01 01:01:02 UTC 1981 base/native.pb
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       235 Thu Jan 01 01:01:02 UTC 1981 base/res/drawable-v21/launch_background.xml
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       828 Thu Jan 01 01:01:02 UTC 1981 base/res/layout/custom_dialog.xml
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       507 Thu Jan 01 01:01:02 UTC 1981 base/res/mipmap-hdpi-v4/ic_launcher.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       405 Thu Jan 01 01:01:02 UTC 1981 base/res/mipmap-mdpi-v4/ic_launcher.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       684 Thu Jan 01 01:01:02 UTC 1981 base/res/mipmap-xhdpi-v4/ic_launcher.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       994 Thu Jan 01 01:01:02 UTC 1981 base/res/mipmap-xxhdpi-v4/ic_launcher.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      1406 Thu Jan 01 01:01:02 UTC 1981 base/res/mipmap-xxxhdpi-v4/ic_launcher.png
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        93 Thu Jan 01 01:01:02 UTC 1981 base/res/xml/image_share_filepaths.xml
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm     41126 Thu Jan 01 01:01:02 UTC 1981 base/resources.pb
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      1738 Thu Jan 01 01:01:02 UTC 1981 base/root/DebugProbesKt.bin
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.activity_activity.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.annotation_annotation-experimental.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        67 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.arch.core_core-runtime.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.browser_browser.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         7 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.core_core-ktx.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.core_core-viewtree.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         7 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.core_core.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.customview_customview.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.exifinterface_exifinterface.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.fragment_fragment.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.interpolator_interpolator.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-livedata-core-ktx.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-livedata-core.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-livedata.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-process.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-runtime.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-viewmodel-savedstate.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.lifecycle_lifecycle-viewmodel.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.loader_loader.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.profileinstaller_profileinstaller.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.savedstate_savedstate.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        14 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.security_security-crypto.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.startup_startup-runtime.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.tracing_tracing.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.versionedparcelable_versionedparcelable.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.viewpager_viewpager.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.window.extensions.core_core.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.window_window-java.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         6 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx.window_window.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm     10175 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/androidx/annotation/annotation/LICENSE.txt
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        57 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/com/android/build/gradle/app-metadata.properties
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         5 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/kotlinx_coroutines_android.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         5 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/kotlinx_coroutines_core.version
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         5 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/services/H0.a
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm         5 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/services/H0.b
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm        46 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/version-control-info.textproto
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       145 Thu Jan 01 01:01:02 UTC 1981 base/root/META-INF/versions/9/OSGI-INF/MANIFEST.MF
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       625 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin-tooling-metadata.json
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      1006 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/annotation/annotation.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      8308 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/collections/collections.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      2674 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/concurrent/atomics/atomics.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       137 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/coroutines/coroutines.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm       590 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/internal/internal.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm     29399 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/kotlin.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      4184 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/ranges/ranges.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+sm      4827 Thu Jan 01 01:01:02 UTC 1981 base/root/kotlin/reflect/reflect.kotlin_builtins
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+       10552 Thu Jan 01 01:01:02 UTC 1981 META-INF/UPLOAD.SF
+        1199 Thu Jan 01 01:01:02 UTC 1981 META-INF/UPLOAD.RSA
+s      10503 Thu Jan 01 01:01:02 UTC 1981 META-INF/MANIFEST.MF
+
+      >>> Signer
+      X.509, CN=Donish, O=Donish, C=UZ
+      Signature algorithm: SHA384withRSA, 2048-bit key
+      [certificate is valid from 3/24/26, 6:07 PM to 8/9/53, 6:07 PM]
+      [Invalid certificate chain: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target]
+
+
+  s = signature was verified 
+  m = entry is listed in manifest
+  k = at least one certificate was found in keystore
+
+- Signed by "CN=Donish, O=Donish, C=UZ"
+    Digest algorithm: SHA-256
+    Signature algorithm: SHA256withRSA, 2048-bit key
+
+jar verified.
+
+Warning: 
+This jar contains entries whose certificate chain is invalid. Reason: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+This jar contains entries whose signer certificate is self-signed.
+This jar contains signatures that do not include a timestamp. Without a timestamp, users may not be able to validate this jar after any of the signer certificates expire (as early as 2053-08-09).
+POSIX file permission and/or symlink attributes detected. These attributes are ignored when signing and are not protected by the signature.
+
+This JAR file contains internal inconsistencies that may result in different contents when reading via JarFile and JarInputStream:
+- Manifest is missing when reading via JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libflutter.so.sym is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.debugsymbols/armeabi-v7a/libflutter.so.sym is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.debugsymbols/x86_64/libflutter.so.sym is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.gradle/app-metadata.properties is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.libraries/dependencies.pb is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools.build.profiles/baseline.profm is signed in JarFile but is not signed in JarInputStream
+- Entry BUNDLE-METADATA/com.android.tools/r8.json is signed in JarFile but is not signed in JarInputStream
+- Entry BundleConfig.pb is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets.pb is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/AssetManifest.bin is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/FontManifest.json is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/NOTICES.Z is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/NativeAssetsManifest.json is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/assets/images/logo.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/fonts/MaterialIcons-Regular.otf is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/shaders/ink_sparkle.frag is signed in JarFile but is not signed in JarInputStream
+- Entry base/assets/flutter_assets/shaders/stretch_effect.frag is signed in JarFile but is not signed in JarInputStream
+- Entry base/dex/classes.dex is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/arm64-v8a/libapp.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/arm64-v8a/libflutter.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/armeabi-v7a/libapp.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/armeabi-v7a/libflutter.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/x86_64/libapp.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/lib/x86_64/libflutter.so is signed in JarFile but is not signed in JarInputStream
+- Entry base/manifest/AndroidManifest.xml is signed in JarFile but is not signed in JarInputStream
+- Entry base/native.pb is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/drawable-v21/launch_background.xml is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/layout/custom_dialog.xml is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/mipmap-hdpi-v4/ic_launcher.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/mipmap-mdpi-v4/ic_launcher.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/mipmap-xhdpi-v4/ic_launcher.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/mipmap-xxhdpi-v4/ic_launcher.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/mipmap-xxxhdpi-v4/ic_launcher.png is signed in JarFile but is not signed in JarInputStream
+- Entry base/res/xml/image_share_filepaths.xml is signed in JarFile but is not signed in JarInputStream
+- Entry base/resources.pb is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/DebugProbesKt.bin is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.activity_activity.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.annotation_annotation-experimental.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.arch.core_core-runtime.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.browser_browser.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.core_core-ktx.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.core_core-viewtree.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.core_core.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.customview_customview.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.exifinterface_exifinterface.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.fragment_fragment.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.interpolator_interpolator.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-livedata-core-ktx.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-livedata-core.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-livedata.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-process.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-runtime.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-viewmodel-savedstate.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.lifecycle_lifecycle-viewmodel.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.loader_loader.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.profileinstaller_profileinstaller.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.savedstate_savedstate.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.security_security-crypto.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.startup_startup-runtime.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.tracing_tracing.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.versionedparcelable_versionedparcelable.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.viewpager_viewpager.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.window.extensions.core_core.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.window_window-java.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx.window_window.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/androidx/annotation/annotation/LICENSE.txt is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/com/android/build/gradle/app-metadata.properties is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/kotlinx_coroutines_android.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/kotlinx_coroutines_core.version is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/services/H0.a is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/services/H0.b is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/version-control-info.textproto is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/META-INF/versions/9/OSGI-INF/MANIFEST.MF is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin-tooling-metadata.json is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/annotation/annotation.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/collections/collections.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/concurrent/atomics/atomics.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/coroutines/coroutines.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/internal/internal.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/kotlin.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/ranges/ranges.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry base/root/kotlin/reflect/reflect.kotlin_builtins is signed in JarFile but is not signed in JarInputStream
+- Entry META-INF/MANIFEST.MF is signed in JarFile but is not signed in JarInputStream
+
+The signer certificate will expire on 2053-08-09.
