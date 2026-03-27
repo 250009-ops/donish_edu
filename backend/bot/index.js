@@ -21,6 +21,14 @@ if (!botToken) {
 
 const bot = new Telegraf(botToken);
 
+bot.catch((err, ctx) => {
+  // eslint-disable-next-line no-console
+  console.error("Unhandled bot error:", {
+    error: err?.description || err?.message || err,
+    updateType: ctx?.updateType
+  });
+});
+
 // Simple in-memory conversation state keyed by chat id.
 const state = new Map();
 
@@ -110,9 +118,73 @@ bot.on("text", async (ctx) => {
 
 // eslint-disable-next-line no-console
 console.log("Donish Telegram bot is starting... (API:", apiBaseUrl, ")");
-bot.launch().catch((err) => {
+
+async function ensurePollingCanWork() {
+  try {
+    const webhookInfo = await bot.telegram.getWebhookInfo();
+    if (webhookInfo?.url) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "Active Telegram webhook detected. Clearing it so polling can receive updates:",
+        webhookInfo.url
+      );
+      await bot.telegram.callApi("deleteWebhook", {
+        drop_pending_updates: false
+      });
+      // eslint-disable-next-line no-console
+      console.log("Telegram webhook cleared.");
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "Could not inspect/clear webhook. Continuing startup:",
+      err?.description || err?.message || err
+    );
+  }
+}
+
+async function launchBot() {
+  try {
+    const me = await bot.telegram.getMe();
+    // eslint-disable-next-line no-console
+    console.log(`Logged in as @${me.username} (${me.id}).`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "Could not fetch bot profile during startup:",
+      err?.description || err?.message || err
+    );
+  }
+
+  await ensurePollingCanWork();
+
+  try {
+    await bot.launch({ dropPendingUpdates: false });
+    // eslint-disable-next-line no-console
+    console.log("Telegram long polling started.");
+  } catch (err) {
+    const message = err?.description || err?.message || String(err);
+    if (/webhook is active/i.test(message)) {
+      // eslint-disable-next-line no-console
+      console.warn("Launch failed due to active webhook. Retrying after clearing it...");
+      await bot.telegram.callApi("deleteWebhook", {
+        drop_pending_updates: false
+      });
+      await bot.launch({ dropPendingUpdates: false });
+      // eslint-disable-next-line no-console
+      console.log("Telegram long polling started after webhook cleanup.");
+      return;
+    }
+    throw err;
+  }
+}
+
+launchBot().catch((err) => {
   // eslint-disable-next-line no-console
-  console.error("Bot launch failed:", err);
+  console.error("Bot launch failed:", err?.description || err?.message || err);
   process.exit(1);
 });
+
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
