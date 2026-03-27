@@ -8,9 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const apiBaseUrl =
-  process.env.API_BASE_URL ||
-  "https://donish-edu.vercel.app";
+const defaultApiBaseUrl = "https://donish-edu.vercel.app";
+const apiBaseUrl = String(process.env.API_BASE_URL || defaultApiBaseUrl).replace(
+  /\/+$/,
+  ""
+);
 const botSharedSecret = process.env.BOT_SHARED_SECRET || "";
 
 if (!botToken) {
@@ -144,6 +146,29 @@ async function ensurePollingCanWork() {
 }
 
 async function launchBot() {
+  if (botSharedSecret && botSharedSecret.length < 16) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "BOT_SHARED_SECRET is set but shorter than 16 characters. This may fail server-side checks in production."
+    );
+  }
+
+  try {
+    const healthRes = await axios.get(`${apiBaseUrl}/health`, { timeout: 7000 });
+    // eslint-disable-next-line no-console
+    console.log(
+      "API health check:",
+      healthRes.status,
+      healthRes.data?.status || "unknown"
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "API health check failed; account creation may fail:",
+      err?.response?.status || err?.code || err?.message || err
+    );
+  }
+
   try {
     const me = await bot.telegram.getMe();
     // eslint-disable-next-line no-console
