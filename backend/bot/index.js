@@ -2,7 +2,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { Telegraf } from "telegraf";
-import axios from "axios";
+
+import { attachDonishBotHandlers } from "../src/telegram/attachHandlers.js";
+import { memorySession } from "../src/telegram/memorySession.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
@@ -21,98 +23,21 @@ if (!botToken) {
 
 const bot = new Telegraf(botToken);
 
-// Simple in-memory conversation state keyed by chat id.
-const state = new Map();
-
-const STATES = {
-  IDLE: "idle",
-  AWAITING_PASSWORD: "awaiting_password"
-};
-
-function setState(chatId, newState, data = {}) {
-  state.set(chatId, { step: newState, data });
-}
-
-function getState(chatId) {
-  return state.get(chatId) || { step: STATES.IDLE, data: {} };
-}
-
-bot.start(async (ctx) => {
-  try {
-    const chatId = ctx.chat.id;
-    setState(chatId, STATES.AWAITING_PASSWORD, {});
-
-    await ctx.reply(
-      "Welcome to Donish!\n\nTo use the Donish app, set a password. Send the password you'll use to sign in (you'll sign in with your ID and this password in the app)."
-    );
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("bot.start error:", err);
-  }
-});
-
-bot.on("text", async (ctx) => {
-  try {
-    const chatId = ctx.chat.id;
-    const message = ctx.message?.text?.trim() ?? "";
-    const current = getState(chatId);
-
-    if (current.step === STATES.AWAITING_PASSWORD) {
-      const password = message;
-
-      try {
-        const headers = { "Content-Type": "application/json" };
-        if (botSharedSecret) {
-          headers["X-Bot-Secret"] = botSharedSecret;
-        }
-        const createRes = await axios.post(
-          `${apiBaseUrl}/bot/create-user`,
-          { telegram_id: chatId, password },
-          { timeout: 15000, headers }
-        );
-
-        const telegramId = createRes.data?.telegram_id ?? chatId;
-        await ctx.reply(
-          `Your Donish account is ready!\n\nYour ID is: ${telegramId}\n\nUse this ID and your password to sign in to the Donish app. Keep your ID private.`
-        );
-        setState(chatId, STATES.IDLE, {});
-        return;
-      } catch (error) {
-        const status = error?.response?.status;
-        const msg = error?.response?.data?.error;
-        // eslint-disable-next-line no-console
-        console.error("create-user error:", error?.response?.data || error.message);
-        if (status === 409) {
-          await ctx.reply(
-            "You already have an account. Use your ID and password to sign in to the Donish app."
-          );
-        } else {
-          await ctx.reply(
-            msg || "I could not create your account. Please try again later."
-          );
-        }
-        setState(chatId, STATES.IDLE, {});
-        return;
-      }
-    }
-
-    await ctx.reply(
-      "To create or manage your Donish account, please send /start."
-    );
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("bot text handler error:", err);
-    try {
-      await ctx.reply("Something went wrong. Please try /start again.");
-    } catch (_) {}
-  }
+attachDonishBotHandlers(bot, {
+  session: memorySession,
+  apiBaseUrl,
+  botSharedSecret
 });
 
 // eslint-disable-next-line no-console
-console.log("Donish Telegram bot is starting... (API:", apiBaseUrl, ")");
+console.log("Donish Telegram bot is starting (long polling)... (API:", apiBaseUrl, ")");
+// eslint-disable-next-line no-console
+console.log(
+  "If you use a Telegram webhook on Vercel, do not run this process — webhook handles updates."
+);
+
 bot.launch().catch((err) => {
   // eslint-disable-next-line no-console
   console.error("Bot launch failed:", err);
   process.exit(1);
 });
-

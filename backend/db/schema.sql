@@ -41,3 +41,10 @@ create table if not exists practice_stats (
   flashcard_mastered boolean not null default false
 );
 
+-- Telegram webhook mode (Vercel): persisted /start → password step.
+create table if not exists telegram_bot_sessions (
+  telegram_id bigint primary key,
+  step text not null default 'idle',
+  updated_at timestamptz not null default now()
+);
+

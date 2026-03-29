@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { config, validateDeploymentConfig } from "./config.js";
 import { authRouter } from "./routes/auth.js";
 import { botRouter } from "./routes/bot.js";
+import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { materialsRouter } from "./routes/materials.js";
 import { vocabRouter } from "./routes/vocab.js";
 import { translateRouter } from "./routes/translate.js";
@@ -30,6 +31,7 @@ app.get("/", (req, res) => {
       "/health",
       "/auth",
       "/bot",
+      "/bot/telegram-webhook (POST, Telegram updates — setWebhook URL here)",
       "/materials (GET paginated: ?limit&offset&q&material_type&english_level)",
       "/materials/extract-preview (POST, JSON pdf_base64)",
       "/materials/:id (GET, DELETE)",
@@ -45,6 +47,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/auth", authRouter);
+app.use("/bot", telegramWebhookRouter);
 app.use("/bot", botRouter);
 app.use("/materials", materialsRouter);
 app.use("/vocab", vocabRouter);
