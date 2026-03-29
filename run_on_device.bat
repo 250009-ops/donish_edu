@@ -3,6 +3,7 @@ REM Build, install, and launch donish_app on connected Android device.
 REM Windows: turn ON Developer Mode (symlinks) or "flutter build apk" fails — Settings - For developers.
 set "FLUTTER=%USERPROFILE%\flutter_sdk\bin\flutter.bat"
 if not exist "%FLUTTER%" set "FLUTTER=C:\Users\user\flutter_sdk\bin\flutter.bat"
+if not exist "%FLUTTER%" set "FLUTTER=C:\Users\SARDOR\Downloads\flutter_windows_3.41.4-stable\flutter\bin\flutter.bat"
 if not exist "%FLUTTER%" (
   echo Flutter not found. Clone or install Flutter, or edit FLUTTER in this script.
   echo Example: git clone https://github.com/flutter/flutter.git -b stable --depth 1 "%USERPROFILE%\flutter_sdk"
@@ -32,6 +33,7 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo Launching app...
-"%ADB%" shell am start -n com.example.donish_app/com.example.donish_app.MainActivity
+"%ADB%" shell am start -n uz.donish.edu/uz.donish.edu.MainActivity
 echo.
 echo Done. App should be open on your phone.
+
