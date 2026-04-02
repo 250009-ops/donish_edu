@@ -97,6 +97,100 @@ function parseTranslationPayload(rawContent) {
   return { context: fallback, base: fallback };
 }
 
+function isLikelyContextualUzbek(text) {
+  const t = cleanText(text).toLowerCase();
+  if (!t) return true;
+
+  const phraseMarkers = [
+    " bo'lgan",
+    " bo‘lgan",
+    " jarayonida",
+    " paytida",
+    " davomida",
+    " holatida",
+    " uchun",
+    " bilan",
+    " haqida",
+    " kabi",
+    " tomon",
+    " ustida",
+    " ostida",
+    " oldin",
+    " keyin"
+  ];
+  if (phraseMarkers.some((m) => t.includes(m))) return true;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  return words.length >= 4;
+}
+
+async function requestTranslationPair(normalizedWord, normalizedContext) {
+  const systemPrompt =
+    "You are a translation assistant. Return only valid JSON with keys translation_context_uz and translation_base_uz. translation_context_uz must be context-aware Uzbek meaning for the sentence. translation_base_uz must be the dictionary/base Uzbek meaning of only the selected word, without extra particles, prepositions, or sentence fragments.";
+
+  const userPrompt =
+    `Selected English word: ${normalizedWord}\n\n` +
+    `Context sentence: ${normalizedContext}\n\n` +
+    "Rules:\n" +
+    "- Keep output concise.\n" +
+    "- translation_base_uz must be a clean base meaning for memorization.\n" +
+    '- Do not include explanations.\n' +
+    '- Output strictly as JSON: {"translation_context_uz":"...","translation_base_uz":"..."}';
+
+  const response = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4.1-mini",
+      temperature: 0,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${config.openAiApiKey}`,
+        "Content-Type": "application/json"
+      },
+      timeout: 15000
+    }
+  );
+
+  const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
+  return parseTranslationPayload(raw);
+}
+
+async function requestStrictBaseOnly(normalizedWord) {
+  const systemPrompt =
+    "You are a bilingual dictionary assistant. Return only Uzbek base/dictionary meaning for one English word. No context phrases, no explanations, no punctuation.";
+  const userPrompt =
+    `English word: ${normalizedWord}\n\n` +
+    'Return JSON only: {"translation_base_uz":"..."}';
+
+  const response = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4.1-mini",
+      temperature: 0,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${config.openAiApiKey}`,
+        "Content-Type": "application/json"
+      },
+      timeout: 15000
+    }
+  );
+
+  const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
+  const parsed = parseTranslationPayload(raw);
+  return cleanText(parsed.base || parsed.context);
+}
+
 translateRouter.post("/", async (req, res) => {
   const { word, context_sentence } = req.body || {};
   const normalizedWord = normalizeWord(word);
@@ -119,41 +213,20 @@ translateRouter.post("/", async (req, res) => {
   }
 
   try {
-    const systemPrompt =
-      "You are a translation assistant. Return only valid JSON with keys translation_context_uz and translation_base_uz. translation_context_uz must be context-aware Uzbek meaning for the sentence. translation_base_uz must be the dictionary/base Uzbek meaning of only the selected word, without extra particles, prepositions, or sentence fragments.";
-
-    const userPrompt =
-      `Selected English word: ${normalizedWord}\n\n` +
-      `Context sentence: ${normalizedContext}\n\n` +
-      "Rules:\n" +
-      "- Keep output concise.\n" +
-      "- translation_base_uz must be a clean base meaning for memorization.\n" +
-      '- Do not include explanations.\n' +
-      '- Output strictly as JSON: {"translation_context_uz":"...","translation_base_uz":"..."}';
-
-    const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4.1-mini",
-        temperature: 0,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${config.openAiApiKey}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 15000
-      }
-    );
-
-    const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
-    const parsed = parseTranslationPayload(raw);
+    const parsed = await requestTranslationPair(normalizedWord, normalizedContext);
     const contextTranslation = parsed.context || parsed.base;
-    const baseTranslation = parsed.base || contextTranslation;
+    let baseTranslation = parsed.base || contextTranslation;
+
+    if (isLikelyContextualUzbek(baseTranslation)) {
+      const strictBase = await requestStrictBaseOnly(normalizedWord);
+      if (strictBase) {
+        baseTranslation = strictBase;
+      }
+    }
+
+    if (!baseTranslation) {
+      baseTranslation = contextTranslation;
+    }
     const payload = {
       word: normalizedWord,
       translation_uz: contextTranslation,
