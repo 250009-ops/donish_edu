@@ -9,10 +9,100 @@ export const translateRouter = express.Router();
 translateRouter.use(requireAuth);
 translateRouter.use(translateLimiter);
 
+const TRANSLATE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const translateCache = new Map();
+
+function normalizeWord(input) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^[^a-zA-Z'’-]+|[^a-zA-Z'’-]+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizeContext(input) {
+  return String(input || "").trim().replace(/\s+/g, " ");
+}
+
+function cacheKey(word, context) {
+  return `${word}::${context.toLowerCase().slice(0, 800)}`;
+}
+
+function getCachedResult(key) {
+  const hit = translateCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) {
+    translateCache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function setCachedResult(key, value) {
+  translateCache.set(key, {
+    value,
+    expiresAt: Date.now() + TRANSLATE_CACHE_TTL_MS
+  });
+}
+
+function cleanupTranslateCache() {
+  if (translateCache.size <= 500) return;
+  const now = Date.now();
+  for (const [k, v] of translateCache.entries()) {
+    if (now > v.expiresAt) translateCache.delete(k);
+  }
+  if (translateCache.size <= 500) return;
+  for (const k of translateCache.keys()) {
+    translateCache.delete(k);
+    if (translateCache.size <= 500) break;
+  }
+}
+
+function cleanText(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function parseTranslationPayload(rawContent) {
+  const text = String(rawContent || "").trim();
+  if (!text) {
+    return { context: "", base: "" };
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch (_) {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch (_) {}
+    }
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const context = cleanText(
+      parsed.translation_context_uz || parsed.translation_uz || ""
+    );
+    const base = cleanText(
+      parsed.translation_base_uz || parsed.base_translation_uz || context
+    );
+    return { context, base };
+  }
+
+  const fallback = cleanText(text);
+  return { context: fallback, base: fallback };
+}
+
 translateRouter.post("/", async (req, res) => {
   const { word, context_sentence } = req.body || {};
+  const normalizedWord = normalizeWord(word);
+  const normalizedContext = normalizeContext(context_sentence);
 
-  if (!word || !context_sentence) {
+  if (!normalizedWord || !normalizedContext) {
     return res
       .status(400)
       .json({ error: "word and context_sentence are required." });
@@ -22,16 +112,30 @@ translateRouter.post("/", async (req, res) => {
     return res.status(500).json({ error: "OpenAI API key not configured." });
   }
 
+  const key = cacheKey(normalizedWord, normalizedContext);
+  const cached = getCachedResult(key);
+  if (cached) {
+    return res.json(cached);
+  }
+
   try {
     const systemPrompt =
-      "You are a translation assistant. Translate the given English word or short phrase into natural Uzbek, taking into account the provided sentence context. Respond with a concise Uzbek translation only.";
+      "You are a translation assistant. Return only valid JSON with keys translation_context_uz and translation_base_uz. translation_context_uz must be context-aware Uzbek meaning for the sentence. translation_base_uz must be the dictionary/base Uzbek meaning of only the selected word, without extra particles, prepositions, or sentence fragments.";
 
-    const userPrompt = `Word or phrase: ${word}\n\nContext sentence: ${context_sentence}\n\nReturn only the Uzbek translation.`;
+    const userPrompt =
+      `Selected English word: ${normalizedWord}\n\n` +
+      `Context sentence: ${normalizedContext}\n\n` +
+      "Rules:\n" +
+      "- Keep output concise.\n" +
+      "- translation_base_uz must be a clean base meaning for memorization.\n" +
+      '- Do not include explanations.\n' +
+      '- Output strictly as JSON: {"translation_context_uz":"...","translation_base_uz":"..."}';
 
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4.1-mini",
+        temperature: 0,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -41,16 +145,26 @@ translateRouter.post("/", async (req, res) => {
         headers: {
           Authorization: `Bearer ${config.openAiApiKey}`,
           "Content-Type": "application/json"
-        }
+        },
+        timeout: 15000
       }
     );
 
-    const translation =
-      response.data.choices?.[0]?.message?.content?.trim() || "";
+    const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
+    const parsed = parseTranslationPayload(raw);
+    const contextTranslation = parsed.context || parsed.base;
+    const baseTranslation = parsed.base || contextTranslation;
+    const payload = {
+      word: normalizedWord,
+      translation_uz: contextTranslation,
+      translation_context_uz: contextTranslation,
+      translation_base_uz: baseTranslation
+    };
 
-    return res.json({
-      translation_uz: translation
-    });
+    setCachedResult(key, payload);
+    cleanupTranslateCache();
+
+    return res.json(payload);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error("POST /translate error:", error?.response?.data || error);

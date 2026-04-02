@@ -275,6 +275,17 @@ const Color _kPopoverBg = Color(0xFF282A3A);
 const Color _kPopoverLabel = Color(0xFF9CA3AF);
 const Color _kPopoverButton = Color(0xFF6F42C1);
 
+String _normalizeTappedWord(String raw) {
+  return raw
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r"^[^A-Za-z'’-]+|[^A-Za-z'’-]+$"), '');
+}
+
+String _normalizeSpaces(String raw) {
+  return raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+}
+
 class _InstantMeaningOverlay extends StatefulWidget {
   const _InstantMeaningOverlay({
     required this.word,
@@ -293,12 +304,28 @@ class _InstantMeaningOverlay extends StatefulWidget {
 }
 
 class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
-  String? _translation;
+  static final Map<String, Map<String, String>> _translationCache = {};
+
+  String? _translationContext;
+  String? _translationBase;
   bool _isLoading = true;
   String? _error;
 
   final GlobalKey _measureKey = GlobalKey();
   double? _measuredTotalHeight;
+
+  String get _normalizedWord => _normalizeTappedWord(widget.word);
+
+  String get _cacheKey {
+    final ctx = _normalizeSpaces(widget.contextSentence).toLowerCase();
+    final shortCtx = ctx.length > 300 ? ctx.substring(0, 300) : ctx;
+    return '${_normalizedWord}::$shortCtx';
+  }
+
+  bool get _hasSavableTranslation {
+    final v = (_translationBase ?? _translationContext)?.trim() ?? '';
+    return v.isNotEmpty;
+  }
 
   @override
   void initState() {
@@ -322,6 +349,28 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   }
 
   Future<void> _fetchTranslation() async {
+    final word = _normalizedWord;
+    if (word.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Could not detect a valid word.';
+      });
+      _scheduleMeasure();
+      return;
+    }
+
+    final cached = _translationCache[_cacheKey];
+    if (cached != null) {
+      setState(() {
+        _translationContext = cached['context'];
+        _translationBase = cached['base'];
+        _isLoading = false;
+        _error = null;
+      });
+      _scheduleMeasure();
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -330,14 +379,22 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       final json = await ApiClient.instance.postJson(
         '/translate',
         body: {
-          'word': widget.word,
+          'word': word,
           'context_sentence': widget.contextSentence,
         },
         authenticated: true,
       );
       if (!mounted) return;
+      final context = (json['translation_context_uz'] ?? json['translation_uz'])
+          as String?;
+      final base = (json['translation_base_uz'] ?? context) as String?;
+      _translationCache[_cacheKey] = {
+        'context': context ?? '',
+        'base': base ?? context ?? '',
+      };
       setState(() {
-        _translation = json['translation_uz'] as String?;
+        _translationContext = context;
+        _translationBase = base;
         _isLoading = false;
       });
       _scheduleMeasure();
@@ -352,14 +409,15 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   }
 
   Future<void> _saveToVocab() async {
-    if (_translation == null) return;
+    final toSave = _translationBase ?? _translationContext;
+    if (toSave == null || toSave.trim().isEmpty) return;
     try {
       await ApiClient.instance.postJson(
         '/vocab',
         authenticated: true,
         body: {
-          'word': widget.word,
-          'translation_uz': _translation,
+          'word': _normalizedWord.isNotEmpty ? _normalizedWord : widget.word,
+          'translation_uz': toSave,
           'context_sentence': widget.contextSentence,
         },
       );
@@ -474,7 +532,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
           ),
           const SizedBox(height: 4),
           Text(
-            widget.word,
+            _normalizedWord.isNotEmpty ? _normalizedWord : widget.word,
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -521,7 +579,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
               constraints: const BoxConstraints(maxHeight: 120),
               child: SingleChildScrollView(
                 child: Text(
-                  _translation ?? '',
+                  _translationContext ?? _translationBase ?? '',
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
@@ -540,7 +598,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
             width: double.infinity,
             child: TextButton.icon(
               onPressed:
-                  _translation != null && !_isLoading ? _saveToVocab : null,
+                  _hasSavableTranslation && !_isLoading ? _saveToVocab : null,
               icon: const Icon(
                 Icons.bookmark_add_rounded,
                 size: 20,
