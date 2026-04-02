@@ -25,6 +25,11 @@ val releaseSigningReady =
         listOf("storePassword", "keyPassword", "keyAlias", "storeFile")
             .all { keystoreProperties.nonBlank(it) != null }
 
+// Guard against stale local.properties values during release uploads.
+// Keep this in sync with pubspec.yaml (1.0.1+2 or higher).
+val minReleaseVersionCode = 2
+val minReleaseVersionName = "1.0.1"
+
 android {
     namespace = "uz.donish.edu"
     compileSdk = flutter.compileSdkVersion
@@ -43,8 +48,13 @@ android {
         applicationId = "uz.donish.edu"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        val resolvedVersionCode = maxOf(flutter.versionCode, minReleaseVersionCode)
+        versionCode = resolvedVersionCode
+        versionName = if (resolvedVersionCode == minReleaseVersionCode) {
+            minReleaseVersionName
+        } else {
+            flutter.versionName.ifBlank { minReleaseVersionName }
+        }
     }
 
     signingConfigs {
