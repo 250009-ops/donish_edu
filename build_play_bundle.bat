@@ -1,7 +1,8 @@
 @echo off
 setlocal
 set "ROOT=%~dp0"
-set "FLUTTER=C:\Users\SARDOR\Downloads\flutter_windows_3.41.4-stable\flutter\bin\flutter.bat"
+set "FLUTTER=%USERPROFILE%\flutter_sdk\bin\flutter.bat"
+if not exist "%FLUTTER%" set "FLUTTER=C:\Users\SARDOR\flutter_sdk\bin\flutter.bat"
 set "LOG=%ROOT%_play_bundle_build.log"
 
 echo Build started %DATE% %TIME% > "%LOG%"
@@ -14,11 +15,11 @@ if not exist "%FLUTTER%" (
 
 cd /d "%ROOT%"
 call "%FLUTTER%" pub get >> "%LOG%" 2>&1
-echo pub get exit=!ERRORLEVEL!>> "%LOG%"
+echo pub get exit=%ERRORLEVEL%>> "%LOG%"
 if errorlevel 1 exit /b 1
 
 call "%FLUTTER%" build appbundle >> "%LOG%" 2>&1
-echo build appbundle exit=!ERRORLEVEL!>> "%LOG%"
+echo build appbundle exit=%ERRORLEVEL%>> "%LOG%"
 if errorlevel 1 exit /b 1
 
 if exist "%ROOT%build\app\outputs\bundle\release\app-release.aab" (
