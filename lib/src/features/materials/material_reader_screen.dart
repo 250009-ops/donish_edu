@@ -179,7 +179,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap any word to see its translation',
+            'Tap any word for dictionary and contextual Uzbek',
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w400,
@@ -195,22 +195,30 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
   }
 }
 
-class _TappableText extends StatelessWidget {
+class _TappableText extends StatefulWidget {
   const _TappableText({required this.paragraphs});
 
   final List<String> paragraphs;
+
+  @override
+  State<_TappableText> createState() => _TappableTextState();
+}
+
+class _TappableTextState extends State<_TappableText> {
+  /// Per reading screen: same normalized word → same translations for the session.
+  final Map<String, Map<String, String>> _sessionTranslationsByWord = {};
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (int i = 0; i < paragraphs.length; i++) ...[
+        for (int i = 0; i < widget.paragraphs.length; i++) ...[
           if (i > 0) const SizedBox(height: 16),
           _ParagraphBlock(
-            text: paragraphs[i],
+            text: widget.paragraphs[i],
             onWordTap: (word, position) =>
-                _onWordTap(context, word, paragraphs[i], position),
+                _onWordTap(context, word, widget.paragraphs[i], position),
           ),
         ],
       ],
@@ -229,6 +237,7 @@ class _TappableText extends StatelessWidget {
         word: word,
         contextSentence: contextSentence,
         tapPosition: tapGlobalPosition,
+        sessionByWord: _sessionTranslationsByWord,
         onDismiss: dismiss,
       ),
     );
@@ -291,12 +300,14 @@ class _InstantMeaningOverlay extends StatefulWidget {
     required this.word,
     required this.contextSentence,
     required this.tapPosition,
+    required this.sessionByWord,
     required this.onDismiss,
   });
 
   final String word;
   final String contextSentence;
   final Offset tapPosition;
+  final Map<String, Map<String, String>> sessionByWord;
   final VoidCallback onDismiss;
 
   @override
@@ -304,8 +315,6 @@ class _InstantMeaningOverlay extends StatefulWidget {
 }
 
 class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
-  static final Map<String, Map<String, String>> _translationCache = {};
-
   String? _translationContext;
   String? _translationBase;
   bool _isLoading = true;
@@ -316,14 +325,8 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
 
   String get _normalizedWord => _normalizeTappedWord(widget.word);
 
-  String get _cacheKey {
-    final ctx = _normalizeSpaces(widget.contextSentence).toLowerCase();
-    final shortCtx = ctx.length > 300 ? ctx.substring(0, 300) : ctx;
-    return '${_normalizedWord}::$shortCtx';
-  }
-
   bool get _hasSavableTranslation {
-    final v = (_translationBase ?? _translationContext)?.trim() ?? '';
+    final v = _translationBase?.trim() ?? '';
     return v.isNotEmpty;
   }
 
@@ -359,16 +362,19 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       return;
     }
 
-    final cached = _translationCache[_cacheKey];
-    if (cached != null) {
-      setState(() {
-        _translationContext = cached['context'];
-        _translationBase = cached['base'];
-        _isLoading = false;
-        _error = null;
-      });
-      _scheduleMeasure();
-      return;
+    final sessionKey = _normalizedWord;
+    if (sessionKey.isNotEmpty) {
+      final cached = widget.sessionByWord[sessionKey];
+      if (cached != null) {
+        setState(() {
+          _translationContext = cached['context'];
+          _translationBase = cached['base'];
+          _isLoading = false;
+          _error = null;
+        });
+        _scheduleMeasure();
+        return;
+      }
     }
 
     setState(() {
@@ -387,14 +393,18 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       if (!mounted) return;
       final context = (json['translation_context_uz'] ?? json['translation_uz'])
           as String?;
-      final base = (json['translation_base_uz'] ?? context) as String?;
-      _translationCache[_cacheKey] = {
-        'context': context ?? '',
-        'base': base ?? context ?? '',
-      };
+      final base = json['translation_base_uz'] as String?;
+      final contextStr = context?.trim() ?? '';
+      final baseStr = base?.trim() ?? '';
+      if (sessionKey.isNotEmpty) {
+        widget.sessionByWord[sessionKey] = {
+          'context': contextStr,
+          'base': baseStr,
+        };
+      }
       setState(() {
-        _translationContext = context;
-        _translationBase = base;
+        _translationContext = contextStr.isEmpty ? null : contextStr;
+        _translationBase = baseStr.isEmpty ? null : baseStr;
         _isLoading = false;
       });
       _scheduleMeasure();
@@ -409,8 +419,8 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   }
 
   Future<void> _saveToVocab() async {
-    final toSave = _translationBase ?? _translationContext;
-    if (toSave == null || toSave.trim().isEmpty) return;
+    final toSave = _translationBase?.trim();
+    if (toSave == null || toSave.isEmpty) return;
     try {
       await ApiClient.instance.postJson(
         '/vocab',
@@ -440,7 +450,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
     final viewSize = MediaQuery.sizeOf(context);
-    const cardWidth = 280.0;
+    const cardWidth = 300.0;
     const cardPadding = 16.0;
     const tailHeight = 10.0;
     const edgeMargin = 12.0;
@@ -541,7 +551,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Translation',
+            'Dictionary translation',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -574,20 +584,48 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             )
-          else
+          else ...[
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 120),
+              constraints: const BoxConstraints(maxHeight: 72),
               child: SingleChildScrollView(
                 child: Text(
-                  _translationContext ?? _translationBase ?? '',
+                  (_translationBase?.trim().isNotEmpty ?? false)
+                      ? _translationBase!.trim()
+                      : '—',
                   style: GoogleFonts.inter(
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Contextual translation',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: _kPopoverLabel,
+              ),
+            ),
+            const SizedBox(height: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 88),
+              child: SingleChildScrollView(
+                child: Text(
+                  (_translationContext?.trim().isNotEmpty ?? false)
+                      ? _translationContext!.trim()
+                      : '—',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                   ),
                 ),
               ),
             ),
+          ],
           const SizedBox(height: 14),
           Container(
             height: 1,
