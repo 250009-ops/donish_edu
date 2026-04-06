@@ -1,4 +1,9 @@
 import axios from "axios";
+import {
+  createTelegramUser,
+  lookupTelegramUser,
+  resetTelegramUserPassword
+} from "../services/botUserOperations.js";
 
 export const STATES = {
   IDLE: "idle",
@@ -31,9 +36,16 @@ function secretHeaders(botSharedSecret) {
  * @param {SessionAdapter} options.session
  * @param {string} options.apiBaseUrl
  * @param {string} [options.botSharedSecret]
+ * @param {boolean} [options.internalUserOps] If true, user DB ops run in-process (Vercel webhook).
+ *   Avoids HTTP self-calls that can fail on 401, wrong API_BASE_URL, or rate limits.
  */
 export function attachDonishBotHandlers(bot, options) {
-  const { session, apiBaseUrl, botSharedSecret = "" } = options;
+  const {
+    session,
+    apiBaseUrl,
+    botSharedSecret = "",
+    internalUserOps = false
+  } = options;
   const base = apiBaseUrl.replace(/\/$/, "");
   const hdr = () => secretHeaders(botSharedSecret);
 
@@ -41,30 +53,50 @@ export function attachDonishBotHandlers(bot, options) {
     try {
       const chatId = ctx.chat.id;
 
-      try {
-        const look = await axios.post(
-          `${base}/bot/lookup-user`,
-          { telegram_id: chatId },
-          { timeout: 15000, headers: hdr() }
-        );
-        if (look.data?.registered) {
-          const tid = look.data.telegram_id ?? chatId;
+      if (internalUserOps) {
+        const look = await lookupTelegramUser(chatId);
+        if (!look.ok) {
+          // eslint-disable-next-line no-console
+          console.error("lookupTelegramUser (internal):", look.error);
+          await ctx.reply(
+            "I couldn't reach Donish right now. Please try /start again in a minute."
+          );
+          return;
+        }
+        if (look.registered) {
+          const tid = look.telegram_id ?? chatId;
           await session.setStep(chatId, STATES.IDLE);
           await ctx.reply(
             `Welcome back to Donish!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
           );
           return;
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(
-          "lookup-user error:",
-          err?.response?.data || err.message
-        );
-        await ctx.reply(
-          "I couldn't reach Donish right now. Please try /start again in a minute."
-        );
-        return;
+      } else {
+        try {
+          const look = await axios.post(
+            `${base}/bot/lookup-user`,
+            { telegram_id: chatId },
+            { timeout: 15000, headers: hdr() }
+          );
+          if (look.data?.registered) {
+            const tid = look.data.telegram_id ?? chatId;
+            await session.setStep(chatId, STATES.IDLE);
+            await ctx.reply(
+              `Welcome back to Donish!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
+            );
+            return;
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "lookup-user error:",
+            err?.response?.data || err.message
+          );
+          await ctx.reply(
+            "I couldn't reach Donish right now. Please try /start again in a minute."
+          );
+          return;
+        }
       }
 
       const persisted =
@@ -88,17 +120,45 @@ export function attachDonishBotHandlers(bot, options) {
   bot.command("reset_password", async (ctx) => {
     try {
       const chatId = ctx.chat.id;
-      const look = await axios.post(
-        `${base}/bot/lookup-user`,
-        { telegram_id: chatId },
-        { timeout: 15000, headers: hdr() }
-      );
-      if (!look.data?.registered) {
-        await ctx.reply(
-          "You don't have a Donish account yet. Send /start to register."
-        );
-        return;
+
+      if (internalUserOps) {
+        const look = await lookupTelegramUser(chatId);
+        if (!look.ok) {
+          // eslint-disable-next-line no-console
+          console.error("reset_password lookup (internal):", look.error);
+          await ctx.reply("Something went wrong. Try /start or try again later.");
+          return;
+        }
+        if (!look.registered) {
+          await ctx.reply(
+            "You don't have a Donish account yet. Send /start to register."
+          );
+          return;
+        }
+      } else {
+        try {
+          const look = await axios.post(
+            `${base}/bot/lookup-user`,
+            { telegram_id: chatId },
+            { timeout: 15000, headers: hdr() }
+          );
+          if (!look.data?.registered) {
+            await ctx.reply(
+              "You don't have a Donish account yet. Send /start to register."
+            );
+            return;
+          }
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "reset_password command:",
+            err?.response?.data || err.message
+          );
+          await ctx.reply("Something went wrong. Try /start or try again later.");
+          return;
+        }
       }
+
       const persisted =
         (await session.setStep(chatId, STATES.AWAITING_NEW_PASSWORD)) !== false;
       if (!persisted) {
@@ -112,10 +172,7 @@ export function attachDonishBotHandlers(bot, options) {
       );
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error(
-        "reset_password command:",
-        err?.response?.data || err.message
-      );
+      console.error("reset_password command:", err);
       await ctx.reply("Something went wrong. Try /start or try again later.");
     }
   });
@@ -132,27 +189,42 @@ export function attachDonishBotHandlers(bot, options) {
       const step = await session.getStep(chatId);
 
       if (step === STATES.AWAITING_NEW_PASSWORD) {
-        try {
-          const resetRes = await axios.post(
-            `${base}/bot/reset-password`,
-            { telegram_id: chatId, password: message },
-            { timeout: 15000, headers: hdr() }
-          );
-          const tid = resetRes.data?.telegram_id ?? chatId;
-          await ctx.reply(
-            `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the Donish app with this ID and your new password.`
-          );
-        } catch (error) {
-          const msg = error?.response?.data?.error;
-          // eslint-disable-next-line no-console
-          console.error(
-            "reset-password error:",
-            error?.response?.data || error.message
-          );
-          await ctx.reply(
-            msg ||
-              "Could not update your password. Try again or send /reset_password."
-          );
+        if (internalUserOps) {
+          const resetRes = await resetTelegramUserPassword(chatId, message);
+          if (resetRes.ok) {
+            const tid = resetRes.telegram_id ?? chatId;
+            await ctx.reply(
+              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the Donish app with this ID and your new password.`
+            );
+          } else {
+            await ctx.reply(
+              resetRes.error ||
+                "Could not update your password. Try again or send /reset_password."
+            );
+          }
+        } else {
+          try {
+            const resetRes = await axios.post(
+              `${base}/bot/reset-password`,
+              { telegram_id: chatId, password: message },
+              { timeout: 15000, headers: hdr() }
+            );
+            const tid = resetRes.data?.telegram_id ?? chatId;
+            await ctx.reply(
+              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the Donish app with this ID and your new password.`
+            );
+          } catch (error) {
+            const msg = error?.response?.data?.error;
+            // eslint-disable-next-line no-console
+            console.error(
+              "reset-password error:",
+              error?.response?.data || error.message
+            );
+            await ctx.reply(
+              msg ||
+                "Could not update your password. Try again or send /reset_password."
+            );
+          }
         }
         await session.setStep(chatId, STATES.IDLE);
         return;
@@ -160,6 +232,27 @@ export function attachDonishBotHandlers(bot, options) {
 
       if (step === STATES.AWAITING_PASSWORD) {
         const password = message;
+
+        if (internalUserOps) {
+          const createRes = await createTelegramUser(chatId, password);
+          if (createRes.ok) {
+            const telegramId = createRes.telegram_id ?? chatId;
+            await ctx.reply(
+              `Your Donish account is ready!\n\nYour ID: ${telegramId}\nPassword: the one you just sent (save it — I won't show it again).\n\nUse this ID and password to sign in to the Donish app. Keep your ID private.`
+            );
+          } else if (createRes.status === 409) {
+            await ctx.reply(
+              "You already have an account.\n\nSend /start to see your Donish ID. To change your password, send /reset_password."
+            );
+          } else {
+            await ctx.reply(
+              createRes.error ||
+                "I could not create your account. Please try again later."
+            );
+          }
+          await session.setStep(chatId, STATES.IDLE);
+          return;
+        }
 
         try {
           const createRes = await axios.post(

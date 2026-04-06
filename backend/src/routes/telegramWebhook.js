@@ -23,7 +23,9 @@ if (token) {
       setStep: setSessionStep
     },
     apiBaseUrl,
-    botSharedSecret: config.botSharedSecret || process.env.BOT_SHARED_SECRET || ""
+    botSharedSecret: config.botSharedSecret || process.env.BOT_SHARED_SECRET || "",
+    /** Same Node process as Express — avoid HTTP self-call to /bot/* (401, URL, rate limits). */
+    internalUserOps: true
   });
 
   telegramWebhookRouter.post("/telegram-webhook", (req, res) => {
