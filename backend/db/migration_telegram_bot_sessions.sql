@@ -3,6 +3,7 @@
 
 create table if not exists telegram_bot_sessions (
   telegram_id bigint primary key,
+  -- idle | awaiting_password | awaiting_new_password
   step text not null default 'idle',
   updated_at timestamptz not null default now()
 );

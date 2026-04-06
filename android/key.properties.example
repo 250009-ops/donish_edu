@@ -1,6 +1,10 @@
 # Copy to key.properties in this folder and fill in values.
 # Never commit key.properties or upload-keystore.jks.
 # Generate a keystore: https://docs.flutter.dev/deployment/android#signing-the-app
+#
+# Lost the old key? Generate a new keystore + upload_certificate.pem, then request an
+# upload key reset in Play Console (Test and release → Setup → App signing).
+# See android/LOCAL_SIGNING_BACKUP.txt if the agent created signing files locally.
 
 storePassword=your-keystore-password
 keyPassword=your-key-password

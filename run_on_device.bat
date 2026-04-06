@@ -33,7 +33,7 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo Launching app...
-"%ADB%" shell am start -n uz.donish.edu/uz.donish.edu.MainActivity
+"%ADB%" shell am start -n uz.donish/uz.donish.MainActivity
 echo.
 echo Done. App should be open on your phone.
 

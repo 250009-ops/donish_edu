@@ -21,6 +21,15 @@ export const botCreateUserLimiter = rateLimit({
   message: { error: "Too many registration attempts. Try again later." }
 });
 
+/** Bot-only endpoints: lookup, password reset (same window as registration). */
+export const botAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many bot requests. Try again later." }
+});
+
 /** Authenticated JSON APIs (materials list, vocab, etc.). */
 export const authenticatedApiLimiter = rateLimit({
   windowMs: 60 * 1000,

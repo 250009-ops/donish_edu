@@ -13,5 +13,6 @@ export const memorySession = {
    */
   async setStep(chatId, step) {
     state.set(chatId, step);
+    return true;
   }
 };

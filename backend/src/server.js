@@ -31,6 +31,8 @@ app.get("/", (req, res) => {
       "/health",
       "/auth",
       "/bot",
+      "/bot/lookup-user (POST, bot)",
+      "/bot/reset-password (POST, bot)",
       "/bot/telegram-webhook (POST, Telegram updates — setWebhook URL here)",
       "/materials (GET paginated: ?limit&offset&q&material_type&english_level)",
       "/materials/extract-preview (POST, JSON pdf_base64)",

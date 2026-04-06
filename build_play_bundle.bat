@@ -2,6 +2,7 @@
 setlocal
 set "ROOT=%~dp0"
 set "FLUTTER=%USERPROFILE%\flutter_sdk\bin\flutter.bat"
+if not exist "%FLUTTER%" set "FLUTTER=C:\Users\Admin\flutter_sdk\bin\flutter.bat"
 if not exist "%FLUTTER%" set "FLUTTER=C:\Users\SARDOR\flutter_sdk\bin\flutter.bat"
 set "LOG=%ROOT%_play_bundle_build.log"
 

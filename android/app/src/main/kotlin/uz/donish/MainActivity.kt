@@ -1,4 +1,4 @@
-package uz.donish.edu
+package uz.donish
 
 import io.flutter.embedding.android.FlutterActivity
 

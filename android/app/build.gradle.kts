@@ -26,12 +26,13 @@ val releaseSigningReady =
             .all { keystoreProperties.nonBlank(it) != null }
 
 // Guard against stale local.properties values during release uploads.
-// Keep this in sync with pubspec.yaml (1.0.1+2 or higher).
-val minReleaseVersionCode = 2
-val minReleaseVersionName = "1.0.1"
+// Bump these together with each Play release (must match or stay below pubspec version).
+// pubspec.yaml: version: 1.0.0+1  →  name 1.0.0, versionCode 1 (new Play listing)
+val minReleaseVersionCode = 1
+val minReleaseVersionName = "1.0.0"
 
 android {
-    namespace = "uz.donish.edu"
+    namespace = "uz.donish"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "28.2.13676358"
 
@@ -45,7 +46,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "uz.donish.edu"
+        applicationId = "uz.donish"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         val resolvedVersionCode = maxOf(flutter.versionCode, minReleaseVersionCode)
@@ -69,7 +70,21 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Single ABI avoids parallel CMake configure tasks that often race on Windows file locks.
+            ndk {
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+            }
+        }
         release {
+            // Windows: limit native ABIs so CMake configure tasks do not run in parallel
+            // (avoids "file is being used by another process" in cxx metadata). Play still
+            // gets 64-bit (required). Add "armeabi-v7a" if you need 32-bit ARM devices.
+            ndk {
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+            }
             signingConfig =
                 if (releaseSigningReady) {
                     signingConfigs.getByName("release")
