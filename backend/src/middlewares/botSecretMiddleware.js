@@ -9,8 +9,7 @@ let warnedInsecureBot = false;
 export function requireBotSharedSecret(req, res, next) {
   const expected = config.botSharedSecret;
   if (!expected) {
-    const isProd =
-      process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+    const isProd = process.env.NODE_ENV === "production";
     if (isProd) {
       return res.status(503).json({
         error: "Server is not configured for bot registration (missing BOT_SHARED_SECRET)."

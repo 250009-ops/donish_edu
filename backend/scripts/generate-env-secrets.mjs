@@ -4,7 +4,7 @@
  * - Never commits .env (see root .gitignore).
  *
  * Usage: npm run secrets
- * Production: copy the two values into Vercel → Environment Variables and into the bot host.
+ * Production: copy the two values into backend/.env on your EC2 host (see DEPLOY.md).
  */
 import crypto from "crypto";
 import fs from "fs";
@@ -54,7 +54,7 @@ console.log(`Updated ${envPath}`);
 // eslint-disable-next-line no-console
 console.log("");
 // eslint-disable-next-line no-console
-console.log("Set these on Vercel (Production) → Environment Variables:");
+console.log("Set these in backend/.env on EC2 (and keep them secret):");
 // eslint-disable-next-line no-console
 console.log(`JWT_SECRET=${jwtSecret}`);
 // eslint-disable-next-line no-console

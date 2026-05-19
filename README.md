@@ -16,10 +16,10 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
-## Deploying the backend to Vercel
+## Backend API (EC2)
 
-The API lives in the `backend/` folder. To avoid 404 on deployment:
+The API lives in `backend/` and runs on **https://api.donish.live** (AWS EC2 + nginx + PM2).
 
-1. In the **Vercel** project → **Settings** → **General**, set **Root Directory** to `backend`.
-2. Save and **redeploy** so the Express app is built and served.
-3. Add environment variables (e.g. `JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `TELEGRAM_BOT_TOKEN`) in **Settings** → **Environment Variables**.
+See **[backend/DEPLOY.md](backend/DEPLOY.md)** for environment variables, deploy steps, and Telegram webhook setup.
+
+After moving off Vercel, disable the old Vercel project so traffic and webhooks only hit EC2.

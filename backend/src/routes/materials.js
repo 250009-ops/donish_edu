@@ -16,7 +16,7 @@ export const materialsRouter = express.Router();
 /** Approximate product limit: reject PDFs with more than this many pages. */
 const MAX_PDF_PAGES = 10;
 
-/** Stay under typical serverless body limits (~4.5 MB on Vercel hobby). */
+/** Stay under reverse-proxy body limits when uploading PDFs. */
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
 /** Stored reader text upper bound (characters). */

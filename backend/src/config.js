@@ -14,12 +14,11 @@ export const config = {
 };
 
 /**
- * Fail fast on Vercel / NODE_ENV=production with weak or missing secrets.
+ * Fail fast in production with weak or missing secrets.
  * Call once at process startup (see server.js).
  */
 export function validateDeploymentConfig() {
-  const isProd =
-    process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const isProd = process.env.NODE_ENV === "production";
   if (!isProd) return;
 
   const jwt = process.env.JWT_SECRET || "";

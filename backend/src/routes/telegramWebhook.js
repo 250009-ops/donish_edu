@@ -1,6 +1,7 @@
 import express from "express";
 import { Telegraf } from "telegraf";
 import { config } from "../config.js";
+import { resolvePublicApiBaseUrl } from "../publicApi.js";
 import { attachDonishBotHandlers } from "../telegram/attachHandlers.js";
 import { getSessionStep, setSessionStep } from "../telegram/sessionStore.js";
 
@@ -8,11 +9,7 @@ export const telegramWebhookRouter = express.Router();
 
 const token = process.env.TELEGRAM_BOT_TOKEN || "";
 const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET || "";
-const apiBaseUrl =
-  process.env.API_BASE_URL ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "https://donish-edu.vercel.app");
+const apiBaseUrl = resolvePublicApiBaseUrl();
 
 if (token) {
   const bot = new Telegraf(token);

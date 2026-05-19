@@ -65,13 +65,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-// On Vercel, the app is used as a serverless handler; do not call listen.
-if (!process.env.VERCEL) {
-  app.listen(config.port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Donish backend listening on port ${config.port}`);
-  });
-}
+app.listen(config.port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`Donish backend listening on port ${config.port}`);
+});
 
 export default app;
 

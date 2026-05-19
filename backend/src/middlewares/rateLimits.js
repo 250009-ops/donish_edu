@@ -1,6 +1,6 @@
 import rateLimit from "express-rate-limit";
 
-/** Vercel sits behind a proxy; required for per-IP limits. */
+/** nginx reverse proxy; required for per-IP rate limits. */
 export function trustProxy(app) {
   app.set("trust proxy", 1);
 }

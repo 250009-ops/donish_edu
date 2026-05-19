@@ -36,7 +36,7 @@ function secretHeaders(botSharedSecret) {
  * @param {SessionAdapter} options.session
  * @param {string} options.apiBaseUrl
  * @param {string} [options.botSharedSecret]
- * @param {boolean} [options.internalUserOps] If true, user DB ops run in-process (Vercel webhook).
+ * @param {boolean} [options.internalUserOps] If true, user DB ops run in-process (webhook mode).
  *   Avoids HTTP self-calls that can fail on 401, wrong API_BASE_URL, or rate limits.
  */
 export function attachDonishBotHandlers(bot, options) {
