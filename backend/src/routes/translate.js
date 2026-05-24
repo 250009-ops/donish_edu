@@ -3,59 +3,22 @@ import axios from "axios";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import { config } from "../config.js";
 import { translateLimiter } from "../middlewares/rateLimits.js";
+import {
+  getUserWordCache,
+  isValidLocalDate,
+  normalizeWord,
+  pruneOlderThanRetention,
+  recordTapForLocalDate,
+  upsertUserWordCache
+} from "../services/wordCache.js";
 
 export const translateRouter = express.Router();
 
 translateRouter.use(requireAuth);
 translateRouter.use(translateLimiter);
 
-const TRANSLATE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const translateCache = new Map();
-
-function normalizeWord(input) {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^[^a-zA-Z'’-]+|[^a-zA-Z'’-]+$/g, "")
-    .replace(/\s+/g, " ");
-}
-
 function normalizeContext(input) {
   return String(input || "").trim().replace(/\s+/g, " ");
-}
-
-function cacheKey(word, context) {
-  return `${word}::${context.toLowerCase().slice(0, 800)}`;
-}
-
-function getCachedResult(key) {
-  const hit = translateCache.get(key);
-  if (!hit) return null;
-  if (Date.now() > hit.expiresAt) {
-    translateCache.delete(key);
-    return null;
-  }
-  return hit.value;
-}
-
-function setCachedResult(key, value) {
-  translateCache.set(key, {
-    value,
-    expiresAt: Date.now() + TRANSLATE_CACHE_TTL_MS
-  });
-}
-
-function cleanupTranslateCache() {
-  if (translateCache.size <= 500) return;
-  const now = Date.now();
-  for (const [k, v] of translateCache.entries()) {
-    if (now > v.expiresAt) translateCache.delete(k);
-  }
-  if (translateCache.size <= 500) return;
-  for (const k of translateCache.keys()) {
-    translateCache.delete(k);
-    if (translateCache.size <= 500) break;
-  }
 }
 
 function cleanText(value) {
@@ -191,8 +154,32 @@ async function requestStrictBaseOnly(normalizedWord) {
   return cleanText(parsed.base || parsed.context);
 }
 
+function buildPayload({
+  word,
+  baseTranslation,
+  contextTranslation,
+  fromCache,
+  savedForPractice,
+  vocabEntryId
+}) {
+  return {
+    word,
+    translation_uz: baseTranslation,
+    translation_base_uz: baseTranslation,
+    translation_context_uz: fromCache ? "" : contextTranslation,
+    from_cache: fromCache,
+    saved_for_practice: savedForPractice === true,
+    vocab_entry_id: vocabEntryId || null
+  };
+}
+
 translateRouter.post("/", async (req, res) => {
-  const { word, context_sentence } = req.body || {};
+  const {
+    word,
+    context_sentence,
+    local_date: localDate,
+    material_id: materialId
+  } = req.body || {};
   const normalizedWord = normalizeWord(word);
   const normalizedContext = normalizeContext(context_sentence);
 
@@ -202,18 +189,66 @@ translateRouter.post("/", async (req, res) => {
       .json({ error: "word and context_sentence are required." });
   }
 
+  if (!localDate || !isValidLocalDate(localDate)) {
+    return res.status(400).json({
+      error: "local_date is required (YYYY-MM-DD, device local calendar day)."
+    });
+  }
+
+  const userId = req.user.id;
+
+  const pruneErr = await pruneOlderThanRetention(userId);
+  if (pruneErr) {
+    // eslint-disable-next-line no-console
+    console.error("POST /translate prune error:", pruneErr);
+  }
+
+  const { row: cachedRow, error: cacheLookupErr } = await getUserWordCache(
+    userId,
+    normalizedWord
+  );
+  if (cacheLookupErr) {
+    // eslint-disable-next-line no-console
+    console.error("POST /translate cache lookup:", cacheLookupErr);
+    return res.status(500).json({ error: "Failed to load word cache." });
+  }
+
+  if (cachedRow) {
+    const base = cleanText(cachedRow.translation_base_uz);
+    const { entry, error: tapErr } = await recordTapForLocalDate(userId, {
+      word: normalizedWord,
+      localDate,
+      translationBaseUz: base,
+      contextSentence: normalizedContext,
+      materialId: materialId || null,
+      savedForPractice: cachedRow.saved_for_practice === true
+    });
+    if (tapErr) {
+      // eslint-disable-next-line no-console
+      console.error("POST /translate tap record:", tapErr);
+    }
+
+    return res.json(
+      buildPayload({
+        word: normalizedWord,
+        baseTranslation: base,
+        contextTranslation: "",
+        fromCache: true,
+        savedForPractice: cachedRow.saved_for_practice === true,
+        vocabEntryId: entry?.id
+      })
+    );
+  }
+
   if (!config.openAiApiKey) {
     return res.status(500).json({ error: "OpenAI API key not configured." });
   }
 
-  const key = cacheKey(normalizedWord, normalizedContext);
-  const cached = getCachedResult(key);
-  if (cached) {
-    return res.json(cached);
-  }
-
   try {
-    const parsed = await requestTranslationPair(normalizedWord, normalizedContext);
+    const parsed = await requestTranslationPair(
+      normalizedWord,
+      normalizedContext
+    );
     const contextTranslation = parsed.context || parsed.base;
     let baseTranslation = parsed.base || contextTranslation;
 
@@ -227,21 +262,44 @@ translateRouter.post("/", async (req, res) => {
     if (!baseTranslation) {
       baseTranslation = contextTranslation;
     }
-    const payload = {
+
+    const { error: upsertErr } = await upsertUserWordCache(userId, {
       word: normalizedWord,
-      translation_uz: contextTranslation,
-      translation_context_uz: contextTranslation,
-      translation_base_uz: baseTranslation
-    };
+      translationBaseUz: baseTranslation,
+      translationContextUz: contextTranslation,
+      savedForPractice: false
+    });
+    if (upsertErr) {
+      // eslint-disable-next-line no-console
+      console.error("POST /translate cache upsert:", upsertErr);
+    }
 
-    setCachedResult(key, payload);
-    cleanupTranslateCache();
+    const { entry, error: tapErr } = await recordTapForLocalDate(userId, {
+      word: normalizedWord,
+      localDate,
+      translationBaseUz: baseTranslation,
+      contextSentence: normalizedContext,
+      materialId: materialId || null,
+      savedForPractice: false
+    });
+    if (tapErr) {
+      // eslint-disable-next-line no-console
+      console.error("POST /translate tap record:", tapErr);
+    }
 
-    return res.json(payload);
+    return res.json(
+      buildPayload({
+        word: normalizedWord,
+        baseTranslation,
+        contextTranslation,
+        fromCache: false,
+        savedForPractice: false,
+        vocabEntryId: entry?.id
+      })
+    );
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error("POST /translate error:", error?.response?.data || error);
     return res.status(500).json({ error: "Failed to translate word." });
   }
 });
-

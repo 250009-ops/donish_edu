@@ -93,14 +93,17 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      MaterialsScreen(key: ValueKey('materials_$_materialsListSeed')),
+      MaterialsScreen(
+        key: ValueKey('materials_$_materialsListSeed'),
+        userId: widget.userId,
+      ),
       AddMaterialScreen(
         key: ValueKey('add_$_addScreenSeed'),
         onFormChanged: _onAddFormChanged,
         onUploadSuccess: _onAddUploadSuccess,
         onRegisterUpload: (cb) => _addMaterialUpload = cb,
       ),
-      VocabScreen(key: _vocabScreenKey),
+      VocabScreen(key: _vocabScreenKey, userId: widget.userId),
     ];
 
     final isAddPage = _currentIndex == 1;

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/word_normalizer.dart';
+import '../vocab/data/vocab_repository.dart';
+import '../vocab/data/word_lexicon_store.dart';
 import '../../core/network/api_client.dart';
 
 const Color _kTextPrimary = Color(0xFF111827);
 const Color _kTextSecondary = Color(0xFF6B7280);
 const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kTappedFill = Color(0xFFEDE9FE);
 
 List<String> paragraphsFromExtractedText(String content) {
   final t = content.trim();
@@ -34,10 +38,12 @@ class MaterialReaderScreen extends StatefulWidget {
     super.key,
     required this.materialId,
     required this.initialTitle,
+    required this.userId,
   });
 
   final String materialId;
   final String initialTitle;
+  final String userId;
 
   @override
   State<MaterialReaderScreen> createState() => _MaterialReaderScreenState();
@@ -48,12 +54,46 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
   String? _error;
   String _title = '';
   List<String> _paragraphs = [];
+  final _repo = VocabRepository(ApiClient.instance);
+  Map<String, WordLexiconEntry> _lexicon = {};
 
   @override
   void initState() {
     super.initState();
     _title = widget.initialTitle;
     _load();
+    _syncLexicon();
+  }
+
+  Future<void> _syncLexicon() async {
+    await WordLexiconStore.instance.setActiveUser(widget.userId);
+    final local = await WordLexiconStore.instance.allForUser();
+    if (mounted) setState(() => _lexicon = local);
+    try {
+      final remote = await _repo.fetchLexicon();
+      await WordLexiconStore.instance.replaceAllFromServer(
+        remote
+            .map(
+              (w) => {
+                'word': w.word,
+                'translation_base_uz': w.translationBaseUz,
+                'saved_for_practice': w.savedForPractice,
+              },
+            )
+            .toList(),
+      );
+      final merged = await WordLexiconStore.instance.allForUser();
+      if (mounted) setState(() => _lexicon = merged);
+    } catch (_) {
+      // Offline: keep local cache.
+    }
+  }
+
+  void _onLexiconUpdated(WordLexiconEntry entry) {
+    setState(() {
+      _lexicon = Map<String, WordLexiconEntry>.from(_lexicon)
+        ..[entry.word] = entry;
+    });
   }
 
   Future<void> _load() async {
@@ -158,7 +198,6 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         ),
       );
     }
-    // Keep last lines above system nav / home indicator (padding.bottom can be 0 with edge-to-edge).
     final mq = MediaQuery.of(context);
     final bottomInset = mq.viewPadding.bottom > mq.padding.bottom
         ? mq.viewPadding.bottom
@@ -179,7 +218,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap any word for dictionary and contextual Uzbek',
+            'Purple words are already known. Tap any word for Uzbek meaning.',
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w400,
@@ -188,7 +227,13 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          _TappableText(paragraphs: _paragraphs),
+          _TappableText(
+            paragraphs: _paragraphs,
+            lexicon: _lexicon,
+            materialId: widget.materialId,
+            vocabRepository: _repo,
+            onLexiconUpdated: _onLexiconUpdated,
+          ),
         ],
       ),
     );
@@ -196,16 +241,25 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
 }
 
 class _TappableText extends StatefulWidget {
-  const _TappableText({required this.paragraphs});
+  const _TappableText({
+    required this.paragraphs,
+    required this.lexicon,
+    required this.materialId,
+    required this.vocabRepository,
+    required this.onLexiconUpdated,
+  });
 
   final List<String> paragraphs;
+  final Map<String, WordLexiconEntry> lexicon;
+  final String materialId;
+  final VocabRepository vocabRepository;
+  final void Function(WordLexiconEntry entry) onLexiconUpdated;
 
   @override
   State<_TappableText> createState() => _TappableTextState();
 }
 
 class _TappableTextState extends State<_TappableText> {
-  /// Per reading screen: same normalized word → same translations for the session.
   final Map<String, Map<String, String>> _sessionTranslationsByWord = {};
 
   @override
@@ -217,6 +271,7 @@ class _TappableTextState extends State<_TappableText> {
           if (i > 0) const SizedBox(height: 16),
           _ParagraphBlock(
             text: widget.paragraphs[i],
+            lexicon: widget.lexicon,
             onWordTap: (word, position) =>
                 _onWordTap(context, word, widget.paragraphs[i], position),
           ),
@@ -227,6 +282,8 @@ class _TappableTextState extends State<_TappableText> {
 
   void _onWordTap(BuildContext context, String word, String contextSentence,
       Offset tapGlobalPosition) {
+    final normalized = normalizeTappedWord(word);
+    final lexEntry = widget.lexicon[normalized];
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
     void dismiss() {
@@ -238,6 +295,10 @@ class _TappableTextState extends State<_TappableText> {
         contextSentence: contextSentence,
         tapPosition: tapGlobalPosition,
         sessionByWord: _sessionTranslationsByWord,
+        lexiconEntry: lexEntry,
+        materialId: widget.materialId,
+        vocabRepository: widget.vocabRepository,
+        onLexiconUpdated: widget.onLexiconUpdated,
         onDismiss: dismiss,
       ),
     );
@@ -248,10 +309,12 @@ class _TappableTextState extends State<_TappableText> {
 class _ParagraphBlock extends StatelessWidget {
   const _ParagraphBlock({
     required this.text,
+    required this.lexicon,
     required this.onWordTap,
   });
 
   final String text;
+  final Map<String, WordLexiconEntry> lexicon;
   final void Function(String word, Offset globalPosition) onWordTap;
 
   @override
@@ -260,22 +323,39 @@ class _ParagraphBlock extends StatelessWidget {
     return Wrap(
       spacing: 4,
       runSpacing: 6,
-      children: words
-          .map(
-            (w) => GestureDetector(
-              onTapDown: (details) => onWordTap(w, details.globalPosition),
-              child: Text(
-                '$w ',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  height: 1.6,
-                  color: _kTextPrimary,
-                ),
+      children: words.map((w) {
+        final normalized = normalizeTappedWord(w);
+        final entry = lexicon[normalized];
+        final saved = entry?.savedForPractice ?? false;
+        final tapped = entry != null;
+        return GestureDetector(
+          onTapDown: (details) => onWordTap(w, details.globalPosition),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+            decoration: BoxDecoration(
+              color: saved
+                  ? _kViolet
+                  : tapped
+                      ? _kTappedFill
+                      : null,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '$w ',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 1.6,
+                color: saved
+                    ? Colors.white
+                    : tapped
+                        ? _kViolet
+                        : _kTextPrimary,
               ),
             ),
-          )
-          .toList(),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -284,23 +364,16 @@ const Color _kPopoverBg = Color(0xFF282A3A);
 const Color _kPopoverLabel = Color(0xFF9CA3AF);
 const Color _kPopoverButton = Color(0xFF6F42C1);
 
-String _normalizeTappedWord(String raw) {
-  return raw
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r"^[^A-Za-z'’-]+|[^A-Za-z'’-]+$"), '');
-}
-
-String _normalizeSpaces(String raw) {
-  return raw.trim().replaceAll(RegExp(r'\s+'), ' ');
-}
-
 class _InstantMeaningOverlay extends StatefulWidget {
   const _InstantMeaningOverlay({
     required this.word,
     required this.contextSentence,
     required this.tapPosition,
     required this.sessionByWord,
+    required this.lexiconEntry,
+    required this.materialId,
+    required this.vocabRepository,
+    required this.onLexiconUpdated,
     required this.onDismiss,
   });
 
@@ -308,6 +381,10 @@ class _InstantMeaningOverlay extends StatefulWidget {
   final String contextSentence;
   final Offset tapPosition;
   final Map<String, Map<String, String>> sessionByWord;
+  final WordLexiconEntry? lexiconEntry;
+  final String materialId;
+  final VocabRepository vocabRepository;
+  final void Function(WordLexiconEntry entry) onLexiconUpdated;
   final VoidCallback onDismiss;
 
   @override
@@ -319,11 +396,13 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   String? _translationBase;
   bool _isLoading = true;
   String? _error;
+  bool _fromCache = false;
+  bool _savedForPractice = false;
 
   final GlobalKey _measureKey = GlobalKey();
   double? _measuredTotalHeight;
 
-  String get _normalizedWord => _normalizeTappedWord(widget.word);
+  String get _normalizedWord => normalizeTappedWord(widget.word);
 
   bool get _hasSavableTranslation {
     final v = _translationBase?.trim() ?? '';
@@ -333,6 +412,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   @override
   void initState() {
     super.initState();
+    _savedForPractice = widget.lexiconEntry?.savedForPractice ?? false;
     _fetchTranslation();
     _scheduleMeasure();
   }
@@ -351,6 +431,23 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
     });
   }
 
+  Future<void> _applyLexiconHit(WordLexiconEntry entry) async {
+    setState(() {
+      _translationBase = entry.translationBaseUz;
+      _translationContext = null;
+      _fromCache = true;
+      _savedForPractice = entry.savedForPractice;
+      _isLoading = false;
+      _error = null;
+    });
+    widget.sessionByWord[_normalizedWord] = {
+      'context': '',
+      'base': entry.translationBaseUz,
+      'from_cache': 'true',
+    };
+    _scheduleMeasure();
+  }
+
   Future<void> _fetchTranslation() async {
     final word = _normalizedWord;
     if (word.isEmpty) {
@@ -363,58 +460,98 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
     }
 
     final sessionKey = _normalizedWord;
-    if (sessionKey.isNotEmpty) {
-      final cached = widget.sessionByWord[sessionKey];
-      if (cached != null) {
-        setState(() {
-          _translationContext = cached['context'];
-          _translationBase = cached['base'];
-          _isLoading = false;
-          _error = null;
-        });
-        _scheduleMeasure();
-        return;
-      }
+    final sessionCached = widget.sessionByWord[sessionKey];
+    if (sessionCached != null) {
+      final fromCache = sessionCached['from_cache'] == 'true';
+      setState(() {
+        _translationContext =
+            fromCache ? null : sessionCached['context'];
+        _translationBase = sessionCached['base'];
+        _fromCache = fromCache;
+        _isLoading = false;
+        _error = null;
+      });
+      _scheduleMeasure();
+      return;
+    }
+
+    final local = await WordLexiconStore.instance.lookup(word);
+    if (local != null && mounted) {
+      await _applyLexiconHit(local);
+      _refreshFromNetwork(word, silent: true);
+      return;
+    }
+
+    if (widget.lexiconEntry != null) {
+      await _applyLexiconHit(widget.lexiconEntry!);
+      _refreshFromNetwork(word, silent: true);
+      return;
     }
 
     setState(() {
       _isLoading = true;
       _error = null;
     });
+    await _refreshFromNetwork(word, silent: false);
+  }
+
+  Future<void> _refreshFromNetwork(String word, {required bool silent}) async {
     try {
-      final json = await ApiClient.instance.postJson(
-        '/translate',
-        body: {
-          'word': word,
-          'context_sentence': widget.contextSentence,
-        },
-        authenticated: true,
+      final json = await widget.vocabRepository.translateWord(
+        word: word,
+        contextSentence: widget.contextSentence,
+        materialId: widget.materialId,
       );
       if (!mounted) return;
-      final context = (json['translation_context_uz'] ?? json['translation_uz'])
-          as String?;
+      final fromCache = json['from_cache'] == true;
+      final context =
+          (json['translation_context_uz'] ?? json['translation_uz']) as String?;
       final base = json['translation_base_uz'] as String?;
-      final contextStr = context?.trim() ?? '';
+      final contextStr = fromCache ? '' : (context?.trim() ?? '');
       final baseStr = base?.trim() ?? '';
-      if (sessionKey.isNotEmpty) {
-        widget.sessionByWord[sessionKey] = {
-          'context': contextStr,
-          'base': baseStr,
-        };
+      final saved = json['saved_for_practice'] == true;
+
+      if (baseStr.isNotEmpty) {
+        await WordLexiconStore.instance.upsert(
+          word: word,
+          translationBaseUz: baseStr,
+          savedForPractice: saved,
+        );
+        widget.onLexiconUpdated(
+          WordLexiconEntry(
+            word: word,
+            translationBaseUz: baseStr,
+            savedForPractice: saved,
+          ),
+        );
       }
-      setState(() {
-        _translationContext = contextStr.isEmpty ? null : contextStr;
-        _translationBase = baseStr.isEmpty ? null : baseStr;
-        _isLoading = false;
-      });
-      _scheduleMeasure();
+
+      widget.sessionByWord[word] = {
+        'context': contextStr,
+        'base': baseStr,
+        'from_cache': fromCache ? 'true' : 'false',
+      };
+
+      if (!silent || !fromCache) {
+        setState(() {
+          _translationContext =
+              contextStr.isEmpty ? null : contextStr;
+          _translationBase = baseStr.isEmpty ? null : baseStr;
+          _fromCache = fromCache;
+          _savedForPractice = saved;
+          _isLoading = false;
+        });
+        _scheduleMeasure();
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-      _scheduleMeasure();
+      if (!silent) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+        _scheduleMeasure();
+      }
     }
   }
 
@@ -422,20 +559,27 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
     final toSave = _translationBase?.trim();
     if (toSave == null || toSave.isEmpty) return;
     try {
-      await ApiClient.instance.postJson(
-        '/vocab',
-        authenticated: true,
-        body: {
-          'word': _normalizedWord.isNotEmpty ? _normalizedWord : widget.word,
-          'translation_uz': toSave,
-          'context_sentence': widget.contextSentence,
-        },
+      await widget.vocabRepository.saveForPractice(
+        word: _normalizedWord.isNotEmpty ? _normalizedWord : widget.word,
+        translationUz: toSave,
+        contextSentence: widget.contextSentence,
+        materialId: widget.materialId,
       );
+      await WordLexiconStore.instance.upsert(
+        word: _normalizedWord,
+        translationBaseUz: toSave,
+        savedForPractice: true,
+      );
+      final entry = WordLexiconEntry(
+        word: _normalizedWord,
+        translationBaseUz: toSave,
+        savedForPractice: true,
+      );
+      widget.onLexiconUpdated(entry);
       if (!mounted) return;
+      setState(() => _savedForPractice = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Saved to Vocabulary Bank'),
-        ),
+        const SnackBar(content: Text('Saved to Vocabulary Bank')),
       );
       widget.onDismiss();
     } catch (e) {
@@ -463,11 +607,10 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       viewSize.width - cardWidth - edgeMargin,
     );
 
-    /// Tip x in coordinates local to the popover column (0..cardWidth).
     final tipLocalX =
         (tap.dx - left).clamp(tailHalfBase + 2, cardWidth - tailHalfBase - 2);
 
-    final totalH = _measuredTotalHeight ?? 240.0;
+    final totalH = _measuredTotalHeight ?? 200.0;
     final need = totalH + gap;
 
     final spaceAbove = tap.dy - padding.top - edgeMargin;
@@ -503,16 +646,13 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       height: tailHeight,
       child: CustomPaint(
         painter: placeAbove
-            ? _TailPainterDown(
-                color: _kPopoverBg,
-                tipX: tipLocalX,
-              )
-            : _TailPainterUp(
-                color: _kPopoverBg,
-                tipX: tipLocalX,
-              ),
+            ? _TailPainterDown(color: _kPopoverBg, tipX: tipLocalX)
+            : _TailPainterUp(color: _kPopoverBg, tipX: tipLocalX),
       ),
     );
+
+    final showContext = !_fromCache &&
+        (_translationContext?.trim().isNotEmpty ?? false);
 
     final card = Container(
       width: cardWidth,
@@ -551,7 +691,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Dictionary translation',
+            'Translation',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -584,9 +724,9 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             )
-          else ...[
+          else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 72),
+              constraints: BoxConstraints(maxHeight: showContext ? 72 : 120),
               child: SingleChildScrollView(
                 child: Text(
                   (_translationBase?.trim().isNotEmpty ?? false)
@@ -600,6 +740,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
                 ),
               ),
             ),
+          if (showContext) ...[
             const SizedBox(height: 12),
             Text(
               'Contextual translation',
@@ -614,9 +755,7 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
               constraints: const BoxConstraints(maxHeight: 88),
               child: SingleChildScrollView(
                 child: Text(
-                  (_translationContext?.trim().isNotEmpty ?? false)
-                      ? _translationContext!.trim()
-                      : '—',
+                  _translationContext!.trim(),
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
@@ -626,41 +765,45 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          Container(
-            height: 1,
-            color: _kPopoverLabel.withOpacity(0.4),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton.icon(
-              onPressed:
-                  _hasSavableTranslation && !_isLoading ? _saveToVocab : null,
-              icon: const Icon(
-                Icons.bookmark_add_rounded,
-                size: 20,
-                color: Colors.white,
-              ),
-              label: Text(
-                'Save to Vocabulary',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+          if (!_savedForPractice) ...[
+            const SizedBox(height: 14),
+            Container(
+              height: 1,
+              color: _kPopoverLabel.withOpacity(0.4),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed:
+                    _hasSavableTranslation && !_isLoading ? _saveToVocab : null,
+                icon: const Icon(
+                  Icons.bookmark_add_rounded,
+                  size: 20,
                   color: Colors.white,
                 ),
-              ),
-              style: TextButton.styleFrom(
-                backgroundColor: _kPopoverButton,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                label: Text(
+                  'Save to Vocabulary',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: _kPopoverButton,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -691,7 +834,6 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
   }
 }
 
-/// Tail points down; tip at bottom, toward the tapped word (popover above word).
 class _TailPainterDown extends CustomPainter {
   _TailPainterDown({required this.color, required this.tipX});
 
@@ -715,7 +857,6 @@ class _TailPainterDown extends CustomPainter {
       oldDelegate.color != color || oldDelegate.tipX != tipX;
 }
 
-/// Tail points up; tip at top, toward the tapped word (popover below word).
 class _TailPainterUp extends CustomPainter {
   _TailPainterUp({required this.color, required this.tipX});
 

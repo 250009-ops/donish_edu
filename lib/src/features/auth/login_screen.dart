@@ -37,12 +37,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     try {
-      await _authRepository.login(
+      final userId = await _authRepository.login(
         id: _idController.text.trim(),
         password: _passwordController.text,
       );
       if (!mounted) return;
-      widget.onAuthenticated(_idController.text.trim());
+      widget.onAuthenticated(userId);
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {

@@ -38,6 +38,8 @@ app.get("/", (req, res) => {
       "/materials/extract-preview (POST, JSON pdf_base64)",
       "/materials/:id (GET, DELETE)",
       "/vocab",
+      "/vocab/days",
+      "/vocab/lexicon",
       "/vocab/practice",
       "/translate"
     ]

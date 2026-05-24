@@ -18,6 +18,16 @@ create table if not exists materials (
   created_at timestamptz not null default now()
 );
 
+create table if not exists user_word_cache (
+  user_id uuid not null references users(id) on delete cascade,
+  word text not null,
+  translation_base_uz text not null,
+  translation_context_uz text,
+  saved_for_practice boolean not null default false,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, word)
+);
+
 create table if not exists vocabulary_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
@@ -25,6 +35,9 @@ create table if not exists vocabulary_entries (
   word text not null,
   context_sentence text,
   translation_uz text not null,
+  translation_base_uz text,
+  local_date date,
+  saved_for_practice boolean not null default false,
   notes text,
   created_at timestamptz not null default now()
 );

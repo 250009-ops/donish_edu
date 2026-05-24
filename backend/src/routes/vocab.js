@@ -2,6 +2,16 @@ import express from "express";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import { authenticatedApiLimiter } from "../middlewares/rateLimits.js";
+import {
+  isValidLocalDate,
+  listDistinctLocalDates,
+  listEntriesForLocalDate,
+  listUserLexicon,
+  normalizeWord,
+  pruneOlderThanRetention,
+  recordTapForLocalDate,
+  upsertUserWordCache
+} from "../services/wordCache.js";
 
 export const vocabRouter = express.Router();
 
@@ -35,7 +45,6 @@ function clamp01(x) {
   return Math.min(1, Math.max(0, x));
 }
 
-/** Per-word bar: quiz-only (ui_progress). No flashcard influence. */
 function quizProgressFromAggregated(agg) {
   if (!agg || agg.ui_progress == null || !Number.isFinite(Number(agg.ui_progress))) {
     return 0;
@@ -47,7 +56,6 @@ function masteredFromAggregated(agg) {
   return !!agg?.flashcard_mastered;
 }
 
-/** Quiz ladder from one practice_stats row (or null). */
 function displayQuizProgressFromRow(row) {
   if (!row || row.ui_progress == null || !Number.isFinite(Number(row.ui_progress))) {
     return 0;
@@ -55,7 +63,6 @@ function displayQuizProgressFromRow(row) {
   return clamp01(Number(row.ui_progress));
 }
 
-/** Merge duplicate practice_stats rows per vocab_id (same user). */
 function aggregateStatsByVocabId(rows) {
   const map = {};
   for (const r of rows || []) {
@@ -79,50 +86,14 @@ function aggregateStatsByVocabId(rows) {
   return map;
 }
 
-async function pruneEntriesBefore(userId, startIso) {
-  const { error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .delete()
-    .eq("user_id", userId)
-    .lt("created_at", startIso);
-  return error;
+function displayTagForEntry(entry, lexiconSaved) {
+  if (entry.saved_for_practice === true || lexiconSaved) {
+    return "Saved";
+  }
+  return "Tapped";
 }
 
-async function listEntriesInWindow(userId, startIso, endIso) {
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("*")
-    .eq("user_id", userId)
-    .gte("created_at", startIso)
-    .lt("created_at", endIso)
-    .order("created_at", { ascending: false });
-
-  if (error) return { error, entries: [] };
-  return { error: null, entries: data || [] };
-}
-
-vocabRouter.get("/", async (req, res) => {
-  const parsed = parseDayWindow(req);
-  if (parsed.error) {
-    return res.status(400).json({ error: parsed.error });
-  }
-  const { startIso, endIso } = parsed;
-  const userId = req.user.id;
-
-  const delErr = await pruneEntriesBefore(userId, startIso);
-  if (delErr) {
-    // eslint-disable-next-line no-console
-    console.error("GET /vocab prune error:", delErr);
-    return res.status(500).json({ error: "Failed to prune old vocabulary." });
-  }
-
-  const { entries, error } = await listEntriesInWindow(userId, startIso, endIso);
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error("GET /vocab error:", error);
-    return res.status(500).json({ error: "Failed to load vocabulary entries." });
-  }
-
+async function enrichEntries(userId, entries) {
   const ids = entries.map((e) => e.id);
   let statsByVocab = {};
   if (ids.length > 0) {
@@ -134,29 +105,147 @@ vocabRouter.get("/", async (req, res) => {
       .eq("user_id", userId)
       .in("vocab_id", ids);
 
-    if (statsErr) {
-      // eslint-disable-next-line no-console
-      console.error("GET /vocab practice_stats error:", statsErr);
-    } else {
+    if (!statsErr && statsRows) {
       statsByVocab = aggregateStatsByVocabId(statsRows);
     }
   }
 
-  const enriched = entries.map((e) => {
+  const words = [...new Set(entries.map((e) => e.word))];
+  let lexiconByWord = {};
+  if (words.length > 0) {
+    const { data: lexRows } = await supabaseAdmin
+      .from("user_word_cache")
+      .select("word, saved_for_practice")
+      .eq("user_id", userId)
+      .in("word", words);
+    for (const row of lexRows || []) {
+      lexiconByWord[row.word] = row;
+    }
+  }
+
+  return entries.map((e) => {
     const agg = statsByVocab[e.id];
+    const lex = lexiconByWord[e.word];
     return {
       ...e,
+      translation_uz:
+        e.translation_base_uz || e.translation_uz,
       progress: quizProgressFromAggregated(agg),
       flashcard_mastered: masteredFromAggregated(agg),
-      display_tag: "Saved"
+      saved_for_practice:
+        e.saved_for_practice === true || lex?.saved_for_practice === true,
+      display_tag: displayTagForEntry(e, lex?.saved_for_practice === true)
     };
   });
+}
 
+/** Distinct local dates (YYYY-MM-DD) that have tapped words, newest first. */
+vocabRouter.get("/days", async (req, res) => {
+  const userId = req.user.id;
+  const pruneErr = await pruneOlderThanRetention(userId);
+  if (pruneErr) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab/days prune error:", pruneErr);
+  }
+
+  const { dates, error } = await listDistinctLocalDates(userId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab/days error:", error);
+    return res.status(500).json({ error: "Failed to load vocabulary days." });
+  }
+
+  return res.json({ dates });
+});
+
+/** Full per-user word lexicon for reader highlighting + offline cache sync. */
+vocabRouter.get("/lexicon", async (req, res) => {
+  const userId = req.user.id;
+  const pruneErr = await pruneOlderThanRetention(userId);
+  if (pruneErr) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab/lexicon prune error:", pruneErr);
+  }
+
+  const { rows, error } = await listUserLexicon(userId);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab/lexicon error:", error);
+    return res.status(500).json({ error: "Failed to load word lexicon." });
+  }
+
+  const words = rows.map((r) => ({
+    word: r.word,
+    translation_base_uz: r.translation_base_uz,
+    saved_for_practice: r.saved_for_practice === true
+  }));
+
+  return res.json({ words });
+});
+
+vocabRouter.get("/", async (req, res) => {
+  const localDate = req.query.localDate;
+  const userId = req.user.id;
+
+  const pruneErr = await pruneOlderThanRetention(userId);
+  if (pruneErr) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab prune error:", pruneErr);
+    return res.status(500).json({ error: "Failed to prune old vocabulary." });
+  }
+
+  if (localDate) {
+    if (!isValidLocalDate(localDate)) {
+      return res.status(400).json({ error: "Invalid localDate (YYYY-MM-DD)." });
+    }
+
+    const { entries, error } = await listEntriesForLocalDate(userId, localDate);
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("GET /vocab error:", error);
+      return res.status(500).json({ error: "Failed to load vocabulary entries." });
+    }
+
+    const enriched = await enrichEntries(userId, entries);
+    return res.json(enriched);
+  }
+
+  const parsed = parseDayWindow(req);
+  if (parsed.error) {
+    return res.status(400).json({
+      error:
+        "localDate (YYYY-MM-DD) or dayStart+dayEnd query parameters are required."
+    });
+  }
+  const { startIso, endIso } = parsed;
+
+  const { data, error } = await supabaseAdmin
+    .from("vocabulary_entries")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("created_at", startIso)
+    .lt("created_at", endIso)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab error:", error);
+    return res.status(500).json({ error: "Failed to load vocabulary entries." });
+  }
+
+  const enriched = await enrichEntries(userId, data || []);
   return res.json(enriched);
 });
 
 vocabRouter.post("/", async (req, res) => {
-  const { word, translation_uz, context_sentence, material_id, notes } = req.body || {};
+  const {
+    word,
+    translation_uz,
+    context_sentence,
+    material_id,
+    notes,
+    local_date: localDate
+  } = req.body || {};
 
   if (!word || !translation_uz) {
     return res
@@ -164,18 +253,36 @@ vocabRouter.post("/", async (req, res) => {
       .json({ error: "word and translation_uz are required." });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .insert({
-      user_id: req.user.id,
-      word,
-      translation_uz,
-      context_sentence: context_sentence || "",
-      material_id: material_id || null,
-      notes: notes || null
-    })
-    .select("*")
-    .single();
+  if (!localDate || !isValidLocalDate(localDate)) {
+    return res.status(400).json({
+      error: "local_date is required (YYYY-MM-DD, device local calendar day)."
+    });
+  }
+
+  const userId = req.user.id;
+  const normalizedWord = normalizeWord(word);
+  const base = String(translation_uz).trim();
+
+  const { error: cacheErr } = await upsertUserWordCache(userId, {
+    word: normalizedWord,
+    translationBaseUz: base,
+    translationContextUz: null,
+    savedForPractice: true
+  });
+  if (cacheErr) {
+    // eslint-disable-next-line no-console
+    console.error("POST /vocab cache upsert:", cacheErr);
+    return res.status(500).json({ error: "Failed to update word cache." });
+  }
+
+  const { entry, error } = await recordTapForLocalDate(userId, {
+    word: normalizedWord,
+    localDate,
+    translationBaseUz: base,
+    contextSentence: context_sentence || "",
+    materialId: material_id || null,
+    savedForPractice: true
+  });
 
   if (error) {
     // eslint-disable-next-line no-console
@@ -183,7 +290,18 @@ vocabRouter.post("/", async (req, res) => {
     return res.status(500).json({ error: "Failed to save vocabulary entry." });
   }
 
-  return res.status(201).json(data);
+  if (notes) {
+    await supabaseAdmin
+      .from("vocabulary_entries")
+      .update({ notes })
+      .eq("id", entry.id);
+  }
+
+  return res.status(201).json({
+    ...entry,
+    saved_for_practice: true,
+    display_tag: "Saved"
+  });
 });
 
 const PRACTICE_ACTIONS = new Set([
@@ -308,25 +426,42 @@ vocabRouter.post("/practice", async (req, res) => {
 });
 
 vocabRouter.get("/stats", async (req, res) => {
-  const parsed = parseDayWindow(req);
-  if (parsed.error) {
-    return res.status(400).json({ error: parsed.error });
-  }
-  const { startIso, endIso } = parsed;
+  const localDate = req.query.localDate;
   const userId = req.user.id;
 
-  const delErr = await pruneEntriesBefore(userId, startIso);
-  if (delErr) {
+  const pruneErr = await pruneOlderThanRetention(userId);
+  if (pruneErr) {
     // eslint-disable-next-line no-console
-    console.error("GET /vocab/stats prune error:", delErr);
+    console.error("GET /vocab/stats prune error:", pruneErr);
     return res.status(500).json({ error: "Failed to prune old vocabulary." });
   }
 
-  const { entries, error } = await listEntriesInWindow(userId, startIso, endIso);
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error("GET /vocab/stats error:", error);
-    return res.status(500).json({ error: "Failed to load vocab stats." });
+  let entries = [];
+  if (localDate) {
+    if (!isValidLocalDate(localDate)) {
+      return res.status(400).json({ error: "Invalid localDate (YYYY-MM-DD)." });
+    }
+    const result = await listEntriesForLocalDate(userId, localDate);
+    if (result.error) {
+      return res.status(500).json({ error: "Failed to load vocab stats." });
+    }
+    entries = result.entries;
+  } else {
+    const parsed = parseDayWindow(req);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const { startIso, endIso } = parsed;
+    const { data, error } = await supabaseAdmin
+      .from("vocabulary_entries")
+      .select("id")
+      .eq("user_id", userId)
+      .gte("created_at", startIso)
+      .lt("created_at", endIso);
+    if (error) {
+      return res.status(500).json({ error: "Failed to load vocab stats." });
+    }
+    entries = data || [];
   }
 
   const ids = entries.map((e) => e.id);

@@ -16,6 +16,10 @@ class ApiClient {
     _token = token;
   }
 
+  void clearToken() {
+    _token = null;
+  }
+
   Future<dynamic> getJson(
     String path, {
     Map<String, String>? queryParameters,

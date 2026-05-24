@@ -1,27 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/local_date.dart';
 import '../../core/network/api_client.dart';
+import '../../widgets/skeleton.dart';
 import 'data/vocab_repository.dart';
+import 'data/word_lexicon_store.dart';
 import 'flashcards_screen.dart';
 import 'quiz_screen.dart';
+import 'widgets/vocab_day_calendar.dart';
 
 class VocabScreen extends StatefulWidget {
-  const VocabScreen({super.key});
+  const VocabScreen({super.key, required this.userId});
+
+  final String userId;
 
   @override
   VocabScreenState createState() => VocabScreenState();
 }
 
-typedef VocabWord = ({String english, String uzbek, String tag, double progress});
+typedef VocabWord = ({
+  String english,
+  String uzbek,
+  String tag,
+  double progress,
+  bool saved,
+});
 
 class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
-  final _repo = VocabRepository(ApiClient.instance);
+  late final VocabRepository _repo = VocabRepository(ApiClient.instance);
 
   bool _loading = true;
   String? _loadError;
   List<VocabEntry> _entries = [];
   String _searchQuery = '';
+  Set<String> _datesWithWords = {};
+  DateTime _selectedDate = DateTime.now();
+  DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  bool _calendarExpanded = true;
 
   int get _totalWords => _entries.length;
 
@@ -37,7 +53,11 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadVocabulary();
+    _bootstrap().then((_) => _loadVocabulary());
+  }
+
+  Future<void> _bootstrap() async {
+    await WordLexiconStore.instance.setActiveUser(widget.userId);
   }
 
   @override
@@ -53,8 +73,24 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Public so [AppShell] can refresh when the user opens the Vocabulary tab.
   Future<void> loadVocabulary() => _loadVocabulary();
+
+  Future<void> _syncLexicon() async {
+    try {
+      final remote = await _repo.fetchLexicon();
+      await WordLexiconStore.instance.replaceAllFromServer(
+        remote
+            .map(
+              (w) => {
+                'word': w.word,
+                'translation_base_uz': w.translationBaseUz,
+                'saved_for_practice': w.savedForPractice,
+              },
+            )
+            .toList(),
+      );
+    } catch (_) {}
+  }
 
   Future<void> _loadVocabulary() async {
     setState(() {
@@ -62,9 +98,20 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
       _loadError = null;
     });
     try {
-      final list = await _repo.listForLocalDay(DateTime.now());
+      final days = await _repo.listDaysWithWords();
+      await _syncLexicon();
+      final datesSet = days.toSet();
+      var selected = _selectedDate;
+      final selectedKey = formatLocalDate(_selectedDate);
+      if (datesSet.isNotEmpty && !datesSet.contains(selectedKey)) {
+        selected = parseLocalDate(days.first);
+      }
+      final list = await _repo.listForLocalDate(selected);
       if (!mounted) return;
       setState(() {
+        _datesWithWords = datesSet;
+        _selectedDate = selected;
+        _visibleMonth = DateTime(selected.year, selected.month, 1);
         _entries = list;
         _loading = false;
         _loadError = null;
@@ -80,6 +127,28 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadEntriesForDate(DateTime date) async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _selectedDate = date;
+    });
+    try {
+      final list = await _repo.listForLocalDate(date);
+      if (!mounted) return;
+      setState(() {
+        _entries = list;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.toString();
+      });
+    }
+  }
+
   List<VocabWord> get _filteredWords {
     Iterable<VocabWord> words = _entries.map(
       (e) => (
@@ -87,6 +156,7 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
         uzbek: e.translationUz,
         tag: e.displayTag,
         progress: e.progress,
+        saved: e.savedForPractice,
       ),
     );
 
@@ -105,12 +175,7 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_loading && _entries.isEmpty && _loadError == null) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF5F6FA),
-        body: SafeArea(
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      );
+      return const VocabScreenSkeleton();
     }
 
     if (_loadError != null && _entries.isEmpty) {
@@ -158,7 +223,46 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
                 masteredCount: _masteredCount,
                 learningCount: _learningCount,
                 masteryPercent: _masteryPercent,
+                dateLabel: formatLocalDateLabel(_selectedDate),
               ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () =>
+                    setState(() => _calendarExpanded = !_calendarExpanded),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Study calendar',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        _calendarExpanded
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_calendarExpanded) ...[
+                const SizedBox(height: 8),
+                VocabDayCalendar(
+                  visibleMonth: _visibleMonth,
+                  selectedDate: _selectedDate,
+                  datesWithWords: _datesWithWords,
+                  onMonthChanged: (m) => setState(() => _visibleMonth = m),
+                  onDateSelected: (d) => _loadEntriesForDate(d),
+                ),
+              ],
               const SizedBox(height: 16),
               _SearchBar(
                 onChanged: (value) =>
@@ -168,10 +272,14 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
               _PracticeRow(
                 entries: List<VocabEntry>.from(_entries),
                 vocabRepository: _repo,
+                selectedDateLabel: formatLocalDateLabel(_selectedDate),
                 onReturnFromPractice: _loadVocabulary,
               ),
               const SizedBox(height: 20),
-              _WordsSection(words: _filteredWords),
+              _WordsSection(
+                words: _filteredWords,
+                selectedDateLabel: formatLocalDateLabel(_selectedDate),
+              ),
             ],
           ),
         ),
@@ -186,12 +294,14 @@ class _StatsCard extends StatelessWidget {
     required this.masteredCount,
     required this.learningCount,
     required this.masteryPercent,
+    required this.dateLabel,
   });
 
   final int totalWords;
   final int masteredCount;
   final int learningCount;
   final double masteryPercent;
+  final String dateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +334,7 @@ class _StatsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'English \u2192 Uzbek',
+                  dateLabel,
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: Colors.white.withOpacity(0.9),
@@ -241,7 +351,7 @@ class _StatsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Total Words',
+                  'Words this day',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: Colors.white.withOpacity(0.9),
@@ -257,9 +367,7 @@ class _StatsCard extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: FractionallySizedBox(
                         widthFactor: barValue.clamp(0.0, 1.0),
-                        child: Container(
-                          color: Colors.white,
-                        ),
+                        child: Container(color: Colors.white),
                       ),
                     ),
                   ),
@@ -349,53 +457,76 @@ class _PracticeRow extends StatelessWidget {
   const _PracticeRow({
     required this.entries,
     required this.vocabRepository,
+    required this.selectedDateLabel,
     required this.onReturnFromPractice,
   });
 
   final List<VocabEntry> entries;
   final VocabRepository vocabRepository;
+  final String selectedDateLabel;
   final Future<void> Function() onReturnFromPractice;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final disabled = entries.isEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: _PracticeCard(
-            label: 'Flashcards',
-            icon: Icons.loop,
-            onTap: () {
-              Navigator.of(context)
-                  .push(
-                MaterialPageRoute(
-                  builder: (_) => FlashcardsScreen(
-                    entries: entries,
-                    vocabRepository: vocabRepository,
-                  ),
-                ),
-              )
-                  .then((_) => onReturnFromPractice());
-            },
+        Text(
+          'Practice · $selectedDateLabel',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF6B7280),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _PracticeCard(
-            label: 'Quiz Mode',
-            icon: Icons.star,
-            onTap: () {
-              Navigator.of(context)
-                  .push(
-                MaterialPageRoute(
-                  builder: (_) => QuizScreen(
-                    entries: entries,
-                    vocabRepository: vocabRepository,
-                  ),
-                ),
-              )
-                  .then((_) => onReturnFromPractice());
-            },
-          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _PracticeCard(
+                label: 'Flashcards',
+                icon: Icons.loop,
+                disabled: disabled,
+                onTap: disabled
+                    ? null
+                    : () {
+                        Navigator.of(context)
+                            .push(
+                          MaterialPageRoute(
+                            builder: (_) => FlashcardsScreen(
+                              entries: entries,
+                              vocabRepository: vocabRepository,
+                            ),
+                          ),
+                        )
+                            .then((_) => onReturnFromPractice());
+                      },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _PracticeCard(
+                label: 'Quiz Mode',
+                icon: Icons.star,
+                disabled: disabled,
+                onTap: disabled
+                    ? null
+                    : () {
+                        Navigator.of(context)
+                            .push(
+                          MaterialPageRoute(
+                            builder: (_) => QuizScreen(
+                              entries: entries,
+                              vocabRepository: vocabRepository,
+                            ),
+                          ),
+                        )
+                            .then((_) => onReturnFromPractice());
+                      },
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -407,41 +538,48 @@ class _PracticeCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.disabled = false,
   });
 
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final isPrimary = label == 'Flashcards';
-    final colors = isPrimary
-        ? const [Color(0xFF4C6FFF), Color(0xFF8E54E9)]
-        : const [Color(0xFF8E54E9), Color(0xFFB46BFF)];
+    final colors = disabled
+        ? [const Color(0xFFD1D5DB), const Color(0xFFE5E7EB)]
+        : isPrimary
+            ? const [Color(0xFF4C6FFF), Color(0xFF8E54E9)]
+            : const [Color(0xFF8E54E9), Color(0xFFB46BFF)];
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(colors: colors),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+    return Opacity(
+      opacity: disabled ? 0.7 : 1,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(colors: colors),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -449,9 +587,13 @@ class _PracticeCard extends StatelessWidget {
 }
 
 class _WordsSection extends StatelessWidget {
-  const _WordsSection({required this.words});
+  const _WordsSection({
+    required this.words,
+    required this.selectedDateLabel,
+  });
 
   final List<VocabWord> words;
+  final String selectedDateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -459,7 +601,7 @@ class _WordsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your Words',
+          'Words · $selectedDateLabel',
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -472,7 +614,7 @@ class _WordsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
               child: Text(
-                'No words saved today. Tap a word in a material to add some.',
+                'No words for this day. Read a material and tap words to build your list.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 14,
@@ -492,6 +634,7 @@ class _WordsSection extends StatelessWidget {
                 uzbek: w.uzbek,
                 tag: w.tag,
                 progress: w.progress,
+                saved: w.saved,
               ),
             );
           }),
@@ -506,12 +649,14 @@ class _WordCard extends StatelessWidget {
     required this.uzbek,
     required this.tag,
     required this.progress,
+    required this.saved,
   });
 
   final String english;
   final String uzbek;
   final String tag;
   final double progress;
+  final bool saved;
 
   @override
   Widget build(BuildContext context) {
@@ -560,14 +705,16 @@ class _WordCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDE9FE),
+                  color: saved
+                      ? const Color(0xFF4C6FFF)
+                      : const Color(0xFFEDE9FE),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   tag,
                   style: GoogleFonts.inter(
                     fontSize: 11,
-                    color: const Color(0xFF7C3AED),
+                    color: saved ? Colors.white : const Color(0xFF4C6FFF),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -613,4 +760,3 @@ class _WordCard extends StatelessWidget {
     );
   }
 }
-

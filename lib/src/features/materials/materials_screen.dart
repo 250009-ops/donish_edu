@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
+import '../../widgets/skeleton.dart';
 import 'material_reader_screen.dart';
 
 const Color _kViolet = Color(0xFF4C6FFF);
@@ -88,7 +89,9 @@ String _formatMaterialListTimestamp(DateTime? utc) {
 }
 
 class MaterialsScreen extends StatefulWidget {
-  const MaterialsScreen({super.key});
+  const MaterialsScreen({super.key, required this.userId});
+
+  final String userId;
 
   @override
   State<MaterialsScreen> createState() => _MaterialsScreenState();
@@ -350,11 +353,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: _kViolet,
-        ),
-      );
+      return const MaterialsListSkeleton();
     }
     if (_error != null && _items.isEmpty) {
       return Center(
@@ -442,6 +441,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
           final material = _items[index];
           return _MaterialCard(
             material: material,
+            userId: widget.userId,
             onDelete: () => _confirmAndDeleteMaterial(context, material),
           );
         },
@@ -807,10 +807,12 @@ Color _levelAccentBackground(String level) {
 class _MaterialCard extends StatelessWidget {
   const _MaterialCard({
     required this.material,
+    required this.userId,
     required this.onDelete,
   });
 
   final MaterialSummary material;
+  final String userId;
   final VoidCallback onDelete;
 
   @override
@@ -843,6 +845,7 @@ class _MaterialCard extends StatelessWidget {
                     builder: (_) => MaterialReaderScreen(
                       materialId: material.id,
                       initialTitle: material.title,
+                      userId: userId,
                     ),
                   ),
                 );
