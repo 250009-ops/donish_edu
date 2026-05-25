@@ -155,7 +155,16 @@ vocabRouter.get("/days", async (req, res) => {
     return res.status(500).json({ error: "Failed to load vocabulary days." });
   }
 
-  return res.json({ dates });
+  const { data: userRow } = await supabaseAdmin
+    .from("users")
+    .select("created_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return res.json({
+    dates,
+    member_since: userRow?.created_at ?? null
+  });
 });
 
 /** Full per-user word lexicon for reader highlighting + offline cache sync. */

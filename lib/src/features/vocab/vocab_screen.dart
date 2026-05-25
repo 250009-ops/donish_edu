@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/local_date.dart';
 import '../../core/network/api_client.dart';
+import '../auth/data/auth_session_store.dart';
+import 'data/vocab_cache_store.dart';
 import 'data/vocab_repository.dart';
 import 'data/word_lexicon_store.dart';
 import 'flashcards_screen.dart';
@@ -29,14 +31,25 @@ typedef VocabWord = ({
 class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   late final VocabRepository _repo = VocabRepository(ApiClient.instance);
 
-  bool _loading = true;
+  bool _refreshing = false;
   String? _loadError;
   List<VocabEntry> _entries = [];
   String _searchQuery = '';
   Set<String> _datesWithWords = {};
-  DateTime _selectedDate = DateTime.now();
-  DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime? _memberSince;
+  DateTime _selectedDate = localDateOnly(DateTime.now());
+  DateTime _visibleMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _calendarExpanded = true;
+
+  DateTime get _today => localDateOnly(DateTime.now());
+
+  DateTime get _minSelectableDay => _memberSince ?? _today;
+
+  DateTime get _maxSelectableDay => _today;
+
+  DateTime _clampSelection(DateTime day) =>
+      clampLocalDay(day, _minSelectableDay, _maxSelectableDay);
 
   int get _totalWords => _entries.length;
 
@@ -52,11 +65,33 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _bootstrap().then((_) => _loadVocabulary());
+    _bootstrap().then((_) async {
+      await _hydrateFromCache();
+      if (!mounted) return;
+      _loadVocabulary();
+    });
   }
 
   Future<void> _bootstrap() async {
     await WordLexiconStore.instance.setActiveUser(widget.userId);
+    await VocabCacheStore.instance.setActiveUser(widget.userId);
+    final memberIso = await AuthSessionStore().readMemberSinceIso();
+    _memberSince = memberSinceFromIso(memberIso);
+    _selectedDate = _clampSelection(_selectedDate);
+    _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+  }
+
+  Future<void> _hydrateFromCache() async {
+    final snap = await VocabCacheStore.instance.loadUiSnapshot();
+    if (snap == null || !mounted) return;
+    final selected = _clampSelection(snap.selectedDate);
+    setState(() {
+      _datesWithWords = snap.datesWithWords;
+      _selectedDate = selected;
+      _visibleMonth = DateTime(selected.year, selected.month, 1);
+      _entries = snap.entries;
+      _loadError = null;
+    });
   }
 
   @override
@@ -93,14 +128,19 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
 
   Future<void> _loadVocabulary() async {
     setState(() {
-      _loading = true;
+      _refreshing = true;
       _loadError = null;
     });
     try {
       Set<String> datesSet = {};
       try {
-        final days = await _repo.listDaysWithWords();
-        datesSet = days.toSet();
+        final daysPayload = await _repo.listDaysWithWords();
+        datesSet = daysPayload.dates.toSet();
+        if (daysPayload.memberSinceIso != null) {
+          await AuthSessionStore()
+              .saveMemberSinceIso(daysPayload.memberSinceIso);
+          _memberSince = memberSinceFromIso(daysPayload.memberSinceIso);
+        }
       } catch (e) {
         if (_entries.isEmpty) {
           _loadError = e.toString();
@@ -111,11 +151,7 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
         await _syncLexicon();
       } catch (_) {}
 
-      var selected = _selectedDate;
-      final selectedKey = formatLocalDate(_selectedDate);
-      if (datesSet.isNotEmpty && !datesSet.contains(selectedKey)) {
-        selected = parseLocalDate(datesSet.first);
-      }
+      final selected = _clampSelection(_selectedDate);
 
       List<VocabEntry> list = [];
       try {
@@ -135,12 +171,17 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
         _selectedDate = selected;
         _visibleMonth = DateTime(selected.year, selected.month, 1);
         _entries = list;
-        _loading = false;
+        _refreshing = false;
       });
+      await VocabCacheStore.instance.saveUiSnapshot(
+        datesWithWords: datesSet,
+        selectedDate: selected,
+        entries: list,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _loading = false;
+        _refreshing = false;
         if (_entries.isEmpty) {
           _loadError = e.toString();
         }
@@ -149,23 +190,34 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadEntriesForDate(DateTime date) async {
+    final day = _clampSelection(date);
+    if (isBeforeLocalDay(day, _minSelectableDay) ||
+        isAfterLocalDay(day, _maxSelectableDay)) {
+      return;
+    }
+    final cached = await VocabCacheStore.instance.loadEntriesForDate(day);
+    if (!mounted) return;
     setState(() {
-      _loading = true;
+      _selectedDate = day;
       _loadError = null;
-      _selectedDate = date;
+      if (cached != null) _entries = cached;
+      _refreshing = true;
     });
     try {
-      final list = await _repo.listForLocalDate(date);
+      final list = await _repo.listForLocalDate(day);
       if (!mounted) return;
       setState(() {
         _entries = list;
-        _loading = false;
+        _refreshing = false;
       });
+      await VocabCacheStore.instance.saveEntriesForDate(day, list);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _loading = false;
-        _loadError = e.toString();
+        _refreshing = false;
+        if (_entries.isEmpty) {
+          _loadError = e.toString();
+        }
       });
     }
   }
@@ -195,120 +247,98 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final showInitialSkeleton =
-        _loading && _entries.isEmpty && _loadError == null;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
-        child: showInitialSkeleton
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const CircularProgressIndicator(
-                      color: Color(0xFF4C6FFF),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Loading vocabulary…',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
+        child: RefreshIndicator(
+          onRefresh: _loadVocabulary,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (_refreshing)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator(
+                    minHeight: 2,
+                    color: Color(0xFF4C6FFF),
+                    backgroundColor: Color(0xFFE5E7EB),
+                  ),
+                ),
+              _StatsCard(
+                totalWords: _totalWords,
+                masteredCount: _masteredCount,
+                learningCount: _learningCount,
+                masteryPercent: _masteryPercent,
+                dateLabel: formatLocalDateLabel(_selectedDate),
+              ),
+              if (_loadError != null && _entries.isEmpty) ...[
+                const SizedBox(height: 12),
+                _VocabErrorBanner(
+                  message: _loadError!,
+                  onRetry: _loadVocabulary,
+                ),
+              ],
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => setState(
+                  () => _calendarExpanded = !_calendarExpanded,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Study calendar',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF111827),
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        _calendarExpanded
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
                         color: const Color(0xFF6B7280),
                       ),
-                    ),
-                  ],
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _loadVocabulary,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _StatsCard(
-                      totalWords: _totalWords,
-                      masteredCount: _masteredCount,
-                      learningCount: _learningCount,
-                      masteryPercent: _masteryPercent,
-                      dateLabel: formatLocalDateLabel(_selectedDate),
-                    ),
-                    if (_loadError != null && _entries.isEmpty) ...[
-                      const SizedBox(height: 12),
-                      _VocabErrorBanner(
-                        message: _loadError!,
-                        onRetry: _loadVocabulary,
-                      ),
                     ],
-                    const SizedBox(height: 12),
-                    InkWell(
-                      onTap: () => setState(
-                        () => _calendarExpanded = !_calendarExpanded,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Text(
-                              'Study calendar',
-                              style: GoogleFonts.inter(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF111827),
-                              ),
-                            ),
-                            const Spacer(),
-                            Icon(
-                              _calendarExpanded
-                                  ? Icons.expand_less_rounded
-                                  : Icons.expand_more_rounded,
-                              color: const Color(0xFF6B7280),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_calendarExpanded) ...[
-                      const SizedBox(height: 8),
-                      VocabDayCalendar(
-                        visibleMonth: _visibleMonth,
-                        selectedDate: _selectedDate,
-                        datesWithWords: _datesWithWords,
-                        onMonthChanged: (m) =>
-                            setState(() => _visibleMonth = m),
-                        onDateSelected: (d) => _loadEntriesForDate(d),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    _SearchBar(
-                      onChanged: (value) =>
-                          setState(() => _searchQuery = value),
-                    ),
-                    const SizedBox(height: 16),
-                    _PracticeRow(
-                      entries: List<VocabEntry>.from(_entries),
-                      vocabRepository: _repo,
-                      selectedDateLabel: formatLocalDateLabel(_selectedDate),
-                      onReturnFromPractice: _loadVocabulary,
-                    ),
-                    const SizedBox(height: 20),
-                    if (_loading && _entries.isNotEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: LinearProgressIndicator(
-                          minHeight: 2,
-                          color: Color(0xFF4C6FFF),
-                          backgroundColor: Color(0xFFE5E7EB),
-                        ),
-                      ),
-                    _WordsSection(
-                      words: _filteredWords,
-                      selectedDateLabel: formatLocalDateLabel(_selectedDate),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+              if (_calendarExpanded) ...[
+                const SizedBox(height: 8),
+                VocabDayCalendar(
+                  visibleMonth: _visibleMonth,
+                  selectedDate: _selectedDate,
+                  datesWithWords: _datesWithWords,
+                  minSelectableDate: _minSelectableDay,
+                  maxSelectableDate: _maxSelectableDay,
+                  onMonthChanged: (m) => setState(() => _visibleMonth = m),
+                  onDateSelected: (d) => _loadEntriesForDate(d),
+                ),
+              ],
+              const SizedBox(height: 16),
+              _SearchBar(
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+              const SizedBox(height: 16),
+              _PracticeRow(
+                entries: List<VocabEntry>.from(_entries),
+                vocabRepository: _repo,
+                selectedDateLabel: formatLocalDateLabel(_selectedDate),
+                onReturnFromPractice: _loadVocabulary,
+              ),
+              const SizedBox(height: 20),
+              _WordsSection(
+                words: _filteredWords,
+                selectedDateLabel: formatLocalDateLabel(_selectedDate),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

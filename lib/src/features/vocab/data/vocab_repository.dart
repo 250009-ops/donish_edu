@@ -31,6 +31,16 @@ class VocabEntry {
       savedForPractice: json['saved_for_practice'] == true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'word': word,
+        'translation_uz': translationUz,
+        'progress': progress,
+        'flashcard_mastered': flashcardMastered,
+        'display_tag': displayTag,
+        'saved_for_practice': savedForPractice,
+      };
 }
 
 class LexiconWord {
@@ -53,6 +63,16 @@ class LexiconWord {
   }
 }
 
+class VocabDaysPayload {
+  const VocabDaysPayload({
+    required this.dates,
+    this.memberSinceIso,
+  });
+
+  final List<String> dates;
+  final String? memberSinceIso;
+}
+
 class VocabRepository {
   VocabRepository(this._apiClient);
 
@@ -60,15 +80,18 @@ class VocabRepository {
 
   static String localDateKey(DateTime local) => formatLocalDate(local);
 
-  Future<List<String>> listDaysWithWords() async {
+  Future<VocabDaysPayload> listDaysWithWords() async {
     final json = await _apiClient.getJson(
       '/vocab/days',
       authenticated: true,
     );
-    if (json is! Map<String, dynamic>) return [];
+    if (json is! Map<String, dynamic>) {
+      return const VocabDaysPayload(dates: []);
+    }
     final dates = json['dates'];
-    if (dates is! List) return [];
-    return dates.whereType<String>().toList();
+    final list = dates is List ? dates.whereType<String>().toList() : <String>[];
+    final memberSince = json['member_since'] as String?;
+    return VocabDaysPayload(dates: list, memberSinceIso: memberSince);
   }
 
   Future<List<LexiconWord>> fetchLexicon() async {

@@ -6,12 +6,15 @@ import '../../../core/local_date.dart';
 const Color _kViolet = Color(0xFF4C6FFF);
 
 /// Month grid calendar: dots on days with vocabulary, tap to select a day.
+/// Days before [minSelectableDate] and after [maxSelectableDate] are disabled.
 class VocabDayCalendar extends StatelessWidget {
   const VocabDayCalendar({
     super.key,
     required this.visibleMonth,
     required this.selectedDate,
     required this.datesWithWords,
+    required this.minSelectableDate,
+    required this.maxSelectableDate,
     required this.onMonthChanged,
     required this.onDateSelected,
   });
@@ -19,6 +22,8 @@ class VocabDayCalendar extends StatelessWidget {
   final DateTime visibleMonth;
   final DateTime selectedDate;
   final Set<String> datesWithWords;
+  final DateTime minSelectableDate;
+  final DateTime maxSelectableDate;
   final ValueChanged<DateTime> onMonthChanged;
   final ValueChanged<DateTime> onDateSelected;
 
@@ -29,6 +34,15 @@ class VocabDayCalendar extends StatelessWidget {
     final firstOfMonth = DateTime(year, month, 1);
     final daysInMonth = DateTime(year, month + 1, 0).day;
     final startWeekday = firstOfMonth.weekday % 7;
+
+    final minDay = localDateOnly(minSelectableDate);
+    final maxDay = localDateOnly(maxSelectableDate);
+    final minMonth = DateTime(minDay.year, minDay.month, 1);
+    final maxMonth = DateTime(maxDay.year, maxDay.month, 1);
+    final visibleMonthStart = DateTime(year, month, 1);
+
+    final canGoPrev = visibleMonthStart.isAfter(minMonth);
+    final canGoNext = visibleMonthStart.isBefore(maxMonth);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -50,11 +64,13 @@ class VocabDayCalendar extends StatelessWidget {
             children: [
               IconButton(
                 visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  onMonthChanged(DateTime(year, month - 1, 1));
-                },
+                onPressed: canGoPrev
+                    ? () => onMonthChanged(DateTime(year, month - 1, 1))
+                    : null,
                 icon: const Icon(Icons.chevron_left_rounded),
-                color: const Color(0xFF374151),
+                color: canGoPrev
+                    ? const Color(0xFF374151)
+                    : const Color(0xFFD1D5DB),
               ),
               Expanded(
                 child: Text(
@@ -69,11 +85,13 @@ class VocabDayCalendar extends StatelessWidget {
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  onMonthChanged(DateTime(year, month + 1, 1));
-                },
+                onPressed: canGoNext
+                    ? () => onMonthChanged(DateTime(year, month + 1, 1))
+                    : null,
                 icon: const Icon(Icons.chevron_right_rounded),
-                color: const Color(0xFF374151),
+                color: canGoNext
+                    ? const Color(0xFF374151)
+                    : const Color(0xFFD1D5DB),
               ),
             ],
           ),
@@ -112,53 +130,61 @@ class VocabDayCalendar extends StatelessWidget {
               }
               final day = index - startWeekday + 1;
               final date = DateTime(year, month, day);
+              final dayOnly = localDateOnly(date);
               final key = formatLocalDate(date);
               final hasWords = datesWithWords.contains(key);
               final isSelected = selectedDate.year == year &&
                   selectedDate.month == month &&
                   selectedDate.day == day;
               final isToday = _isSameLocalDay(date, DateTime.now());
+              final isDisabled = dayOnly.isBefore(minDay) ||
+                  dayOnly.isAfter(maxDay);
 
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => onDateSelected(date),
+                  onTap: isDisabled ? null : () => onDateSelected(date),
                   borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? _kViolet
-                          : isToday
-                              ? const Color(0xFFEEF2FF)
-                              : null,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$day',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF111827),
-                          ),
-                        ),
-                        if (hasWords)
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
+                  child: Opacity(
+                    opacity: isDisabled ? 0.35 : 1,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _kViolet
+                            : isToday && !isDisabled
+                                ? const Color(0xFFEEF2FF)
+                                : null,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$day',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: isSelected
                                   ? Colors.white
-                                  : _kViolet,
-                              shape: BoxShape.circle,
+                                  : isDisabled
+                                      ? const Color(0xFF9CA3AF)
+                                      : const Color(0xFF111827),
                             ),
                           ),
-                      ],
+                          if (hasWords && !isDisabled)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.white
+                                    : _kViolet,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

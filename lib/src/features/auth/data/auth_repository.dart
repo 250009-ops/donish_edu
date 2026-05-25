@@ -1,3 +1,4 @@
+import '../../../core/local_date.dart';
 import '../../../core/network/api_client.dart';
 import 'auth_session_store.dart';
 
@@ -38,9 +39,16 @@ class AuthRepository {
         ? user['telegram_id']
         : null;
     final userId = telegramId?.toString() ?? id.trim();
+    final createdAt = user is Map<String, dynamic>
+        ? user['created_at'] as String?
+        : null;
 
     _apiClient.setToken(token);
-    await _sessionStore.save(token: token, userId: userId);
+    await _sessionStore.save(
+      token: token,
+      userId: userId,
+      memberSinceIso: createdAt,
+    );
     return userId;
   }
 
@@ -50,6 +58,16 @@ class AuthRepository {
     if (session == null) return null;
     _apiClient.setToken(session.token);
     return session.userId;
+  }
+
+  /// Account signup instant (UTC ISO), for calendar bounds.
+  Future<DateTime?> memberSinceLocal() async {
+    final iso = await _sessionStore.readMemberSinceIso();
+    return memberSinceFromIso(iso);
+  }
+
+  Future<void> persistMemberSinceIso(String? iso) async {
+    await _sessionStore.saveMemberSinceIso(iso);
   }
 
   /// Clears saved credentials and in-memory token (explicit sign out).

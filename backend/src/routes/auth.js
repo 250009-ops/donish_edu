@@ -47,7 +47,8 @@ authRouter.post("/login", loginLimiter, async (req, res) => {
     token,
     user: {
       id: user.id,
-      telegram_id: user.telegram_id
+      telegram_id: user.telegram_id,
+      created_at: user.created_at
     }
   });
 });

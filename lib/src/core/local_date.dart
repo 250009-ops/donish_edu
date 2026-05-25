@@ -19,6 +19,40 @@ DateTime parseLocalDate(String yyyyMmDd) {
   );
 }
 
+/// Calendar day in device local timezone (midnight, no time component).
+DateTime localDateOnly(DateTime d) {
+  final local = d.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+bool isBeforeLocalDay(DateTime a, DateTime b) {
+  return localDateOnly(a).isBefore(localDateOnly(b));
+}
+
+bool isAfterLocalDay(DateTime a, DateTime b) {
+  return localDateOnly(a).isAfter(localDateOnly(b));
+}
+
+/// Keeps [day] within [[minDay], [maxDay]] by local calendar day.
+DateTime clampLocalDay(DateTime day, DateTime minDay, DateTime maxDay) {
+  final d = localDateOnly(day);
+  final min = localDateOnly(minDay);
+  final max = localDateOnly(maxDay);
+  if (d.isBefore(min)) return min;
+  if (d.isAfter(max)) return max;
+  return d;
+}
+
+/// First selectable study day from server `created_at` (UTC ISO).
+DateTime? memberSinceFromIso(String? iso) {
+  if (iso == null || iso.isEmpty) return null;
+  try {
+    return localDateOnly(DateTime.parse(iso));
+  } catch (_) {
+    return null;
+  }
+}
+
 String formatLocalDateLabel(DateTime local) {
   const months = [
     'Jan',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/word_normalizer.dart';
+import '../../widgets/donish_snackbar.dart';
 import '../vocab/data/vocab_repository.dart';
 import '../vocab/data/word_lexicon_store.dart';
 import '../../core/network/api_client.dart';
@@ -578,15 +579,11 @@ class _InstantMeaningOverlayState extends State<_InstantMeaningOverlay> {
       widget.onLexiconUpdated(entry);
       if (!mounted) return;
       setState(() => _savedForPractice = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to Vocabulary Bank')),
-      );
+      showDonishSnackBar(context, message: 'Saved to Vocabulary Bank');
       widget.onDismiss();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      showDonishSnackBar(context, message: e.toString());
     }
   }
 

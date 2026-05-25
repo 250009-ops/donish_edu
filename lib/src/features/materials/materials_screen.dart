@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
-import '../../widgets/skeleton.dart';
+import 'data/materials_cache_store.dart';
 import 'material_reader_screen.dart';
 
 const Color _kViolet = Color(0xFF4C6FFF);
@@ -62,6 +62,15 @@ class MaterialSummary {
       createdAt: created,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'material_type': materialType,
+        'english_level': englishLevel,
+        if (pageCount != null) 'page_count': pageCount,
+        if (createdAt != null) 'created_at': createdAt!.toUtc().toIso8601String(),
+      };
 }
 
 /// Compact local date + 24h time for list cards (e.g. `Oct 24, 14:30`).
@@ -94,10 +103,10 @@ class MaterialsScreen extends StatefulWidget {
   final String userId;
 
   @override
-  State<MaterialsScreen> createState() => _MaterialsScreenState();
+  MaterialsScreenState createState() => MaterialsScreenState();
 }
 
-class _MaterialsScreenState extends State<MaterialsScreen> {
+class MaterialsScreenState extends State<MaterialsScreen> {
   static const int _pageSize = 40;
 
   String _selectedType = _typeOptions.first;
@@ -110,16 +119,53 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
   List<MaterialSummary> _items = [];
   int _nextOffset = 0;
   bool _hasMore = false;
-  bool _loading = true;
+  bool _refreshing = false;
   bool _loadingMore = false;
   bool _loadMoreInProgress = false;
   String? _error;
+
+  /// Refetch from the first page (e.g. after upload). Keeps existing list visible.
+  Future<void> reloadMaterials() => _fetchMaterials(reset: true);
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _initFromCacheThenFetch();
+  }
+
+  Future<void> _initFromCacheThenFetch() async {
+    await MaterialsCacheStore.instance.setActiveUser(widget.userId);
+    await _hydrateFromCache();
+    if (!mounted) return;
     _fetchMaterials(reset: true);
+  }
+
+  Future<void> _hydrateFromCache() async {
+    final cached = await MaterialsCacheStore.instance.loadFeed(
+      type: _selectedType,
+      level: _selectedLevel,
+      searchQuery: _searchQuery,
+    );
+    if (cached == null || !mounted) return;
+    final items = cached.itemMaps.map(MaterialSummary.fromJson).toList();
+    setState(() {
+      _items = items;
+      _hasMore = cached.hasMore;
+      _nextOffset = cached.nextOffset;
+      _error = null;
+    });
+  }
+
+  Future<void> _persistFeedCache() async {
+    await MaterialsCacheStore.instance.saveFeed(
+      type: _selectedType,
+      level: _selectedLevel,
+      searchQuery: _searchQuery,
+      itemMaps: _items.map((m) => m.toJson()).toList(),
+      hasMore: _hasMore,
+      nextOffset: _nextOffset,
+    );
   }
 
   @override
@@ -140,7 +186,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     if (_loadMoreInProgress ||
         _loadingMore ||
         !_hasMore ||
-        _loading ||
+        _refreshing ||
         _error != null) {
       return;
     }
@@ -152,7 +198,9 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
 
   void _reloadFromFilters() {
     _searchDebounce?.cancel();
-    _fetchMaterials(reset: true);
+    _hydrateFromCache().then((_) {
+      if (mounted) _fetchMaterials(reset: true);
+    });
   }
 
   void _onSearchChanged(String value) {
@@ -160,7 +208,9 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
-      _fetchMaterials(reset: true);
+      _hydrateFromCache().then((_) {
+        if (mounted) _fetchMaterials(reset: true);
+      });
     });
   }
 
@@ -168,15 +218,14 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
     if (reset) {
       _loadMoreInProgress = false;
       setState(() {
-        _loading = true;
+        _refreshing = true;
         _error = null;
-        _items = [];
         _hasMore = false;
         _nextOffset = 0;
         _loadingMore = false;
       });
     } else {
-      if (_loadMoreInProgress || !_hasMore || _loading || _error != null) {
+      if (_loadMoreInProgress || !_hasMore || _refreshing || _error != null) {
         return;
       }
       _loadMoreInProgress = true;
@@ -210,10 +259,9 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
       if (raw is! Map<String, dynamic>) {
         setState(() {
           _error = 'Unexpected response from server.';
-          _loading = false;
+          _refreshing = false;
           _loadingMore = false;
           _loadMoreInProgress = false;
-          if (reset) _items = [];
         });
         return;
       }
@@ -233,20 +281,32 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
         }
         _hasMore = hasMore;
         _nextOffset = reset ? batch.length : _nextOffset + batch.length;
-        _loading = false;
+        _refreshing = false;
         _loadingMore = false;
         _loadMoreInProgress = false;
       });
+      await _persistFeedCache();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingMore = false;
         _loadMoreInProgress = false;
+        _refreshing = false;
         if (reset) {
-          _error = e.toString();
-          _items = [];
+          if (_items.isEmpty) {
+            _error = e.toString();
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Could not refresh: $e',
+                  style: GoogleFonts.inter(),
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
-        _loading = false;
       });
       if (!reset && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -302,6 +362,7 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
       );
       if (!mounted) return;
       setState(() => _items.removeWhere((m) => m.id == material.id));
+      await _persistFeedCache();
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -345,6 +406,12 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
             },
             onSearchChanged: _onSearchChanged,
           ),
+          if (_refreshing)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              color: _kViolet,
+              backgroundColor: Color(0xFFE5E7EB),
+            ),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -352,9 +419,6 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const MaterialsListSkeleton();
-    }
     if (_error != null && _items.isEmpty) {
       return Center(
         child: Padding(
