@@ -149,7 +149,7 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     _notifyFormChanged();
 
     try {
-      // Server extracts text once; user edits on review screen; final POST sends content_text only.
+      // Server extracts text via Amazon Textract; user edits on review screen.
       final preview = await ApiClient.instance.postJson(
         '/materials/extract-preview',
         authenticated: true,
@@ -378,7 +378,7 @@ class _PdfUploadZone extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     Text(
-                      'Text-based PDFs only, up to ~10 pages (~4 MB).',
+                      'PDF up to ~30 pages (~10 MB). Text is read with OCR (may take 1–2 min).',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 12,
@@ -388,7 +388,7 @@ class _PdfUploadZone extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                       child: Text(
-                        'Scans or photos of pages usually will not work—we cannot read text from images yet.',
+                        'Scans and digital PDFs both work—review and edit the extracted text before saving.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 12,

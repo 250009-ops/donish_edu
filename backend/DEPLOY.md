@@ -25,7 +25,16 @@ Required in production:
 | `BOT_SHARED_SECRET` | ≥ 16 characters |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase project |
 | `OPENAI_API_KEY` | Translation |
+| `AWS_REGION` | Same region as EC2 / S3 (e.g. `us-east-1`) |
+| `TEXTRACT_S3_BUCKET` | Private bucket for temporary PDFs (see below) |
 | `TELEGRAM_BOT_TOKEN` | Bot + webhook |
+
+**Textract (required):** All PDF text extraction uses Amazon Textract. On EC2, attach an IAM role (preferred) or set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` with:
+
+- `textract:StartDocumentTextDetection`, `textract:GetDocumentTextDetection`
+- `s3:PutObject`, `s3:DeleteObject` on `TEXTRACT_S3_BUCKET` (prefix `textract-uploads/`)
+
+Create a private S3 bucket in **eu-west-1** (Textract is not available in eu-north-1). Example: `donish-textract-uploads-eu-west-1`. Optional lifecycle rule to expire `textract-uploads/` after 1 day.
 
 Optional: `TELEGRAM_WEBHOOK_SECRET` (recommended).
 
@@ -36,10 +45,12 @@ Do **not** set `VERCEL` or `VERCEL_URL` on EC2.
 ```bash
 cd ~/donish_edu/backend   # or your clone path
 git pull
-npm ci
+npm ci                    # installs @aws-sdk/client-textract + client-s3 (required)
 pm2 restart donish-api    # or your PM2 app name
 pm2 save
 ```
+
+Add to `backend/.env` on the server: `AWS_REGION`, `TEXTRACT_S3_BUCKET`, and IAM credentials (instance role recommended).
 
 ### Vocabulary / word-cache migration (required once)
 

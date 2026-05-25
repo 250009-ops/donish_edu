@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
 
-/// Explains text-based PDFs vs scans (proactive help + reusable for “About”).
+/// Explains PDF upload limits and Textract-based extraction.
 void showPdfMaterialsHelpDialog(BuildContext context) {
   showDialog<void>(
     context: context,
@@ -14,14 +14,14 @@ void showPdfMaterialsHelpDialog(BuildContext context) {
       ),
       content: SingleChildScrollView(
         child: Text(
-          'Donish reads real text inside your PDF—not pictures of pages.\n\n'
+          'Donish reads your PDF using Amazon Textract (OCR). It works for digital PDFs and scanned pages.\n\n'
           'Works well:\n'
-          '• PDFs exported from Word, Google Docs, or websites that offer a download.\n'
-          '• “Print to PDF” from anything where you can select and copy text.\n\n'
-          'Often fails:\n'
-          '• Scans or photos saved as PDF (image-only pages).\n'
-          '• Files that need OCR (we do not support OCR yet).\n\n'
-          'Limits: text-based PDF, up to about 10 pages and 4 MB.',
+          '• PDFs from Word, Google Docs, or websites.\n'
+          '• Scans and photos saved as PDF (clear text helps).\n\n'
+          'May fail or need editing:\n'
+          '• Blurry or very low-contrast scans.\n'
+          '• Password-protected or corrupted files.\n\n'
+          'Limits: PDF only, up to about 30 pages and 10 MB. Extraction can take 1–2 minutes.',
           style: GoogleFonts.inter(
             fontSize: 14,
             height: 1.45,
@@ -45,9 +45,78 @@ void showMaterialUploadError(BuildContext context, Object error) {
     final msg = error.message;
     final noExtractableText = error.code == 'pdf_no_extractable_text' ||
         msg.contains('No readable text') ||
-        msg.contains('no text we can read');
+        msg.contains('no text we can read') ||
+        msg.contains('could not find readable text');
     final unreadablePdf = error.code == 'pdf_unreadable' ||
-        (msg.contains('Could not read this PDF') && !noExtractableText);
+        (msg.contains('Could not read this PDF') && !noExtractableText) ||
+        msg.contains('Could not extract text');
+    final tooLarge = error.code == 'payload_too_large' ||
+        error.statusCode == 413 ||
+        msg.toLowerCase().contains('too large');
+    final textractUnavailable = error.code == 'textract_not_configured' ||
+        error.code == 'textract_timeout';
+
+    if (tooLarge) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'PDF too large',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'This file is larger than we can accept (about 10 MB). '
+              'Try a shorter PDF, fewer pages, or export with lower image quality.\n\n'
+              'Details: ${error.message}',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.45,
+                color: const Color(0xFF374151),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('OK', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (textractUnavailable) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'Extraction unavailable',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'Text extraction is temporarily unavailable or took too long. '
+              'Try again in a moment, or use a smaller PDF (fewer pages).\n\n'
+              'Details: ${error.message}',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                height: 1.45,
+                color: const Color(0xFF374151),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('OK', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     if (noExtractableText) {
       showDialog<void>(
@@ -59,12 +128,8 @@ void showMaterialUploadError(BuildContext context, Object error) {
           ),
           content: SingleChildScrollView(
             child: Text(
-              'This file looks like a scan or image-only PDF: there are no words for us to read. '
-              'Donish does not use OCR (photo-to-text) yet.\n\n'
-              'Try:\n'
-              '• A PDF downloaded from a source that provides real text.\n'
-              '• Export or “Print to PDF” from Word, Google Docs, or similar.\n'
-              '• Another version of the same content if you have one.\n\n'
+              'We could not detect readable text in this file. '
+              'Try a clearer scan, re-export the PDF, or another copy of the document.\n\n'
               'Details: ${error.message}',
               style: GoogleFonts.inter(
                 fontSize: 14,

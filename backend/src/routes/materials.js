@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import express from "express";
 import multer from "multer";
 import { supabaseAdmin } from "../supabaseClient.js";
@@ -7,17 +6,20 @@ import {
   authenticatedApiLimiter,
   extractPreviewLimiter
 } from "../middlewares/rateLimits.js";
-
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+import {
+  extractTextFromPdfWithTextract,
+  TextractJobFailedError,
+  TextractNotConfiguredError,
+  TextractTimeoutError
+} from "../services/textractExtract.js";
 
 export const materialsRouter = express.Router();
 
-/** Approximate product limit: reject PDFs with more than this many pages. */
-const MAX_PDF_PAGES = 10;
+/** Reject PDFs with more than this many pages (Textract async). */
+const MAX_PDF_PAGES = 30;
 
-/** Stay under reverse-proxy body limits when uploading PDFs. */
-const MAX_FILE_BYTES = 4 * 1024 * 1024;
+/** Max decoded PDF size. Base64 upload needs ~4/3× this in JSON body limit. */
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /** Stored reader text upper bound (characters). */
 const MAX_CONTENT_TEXT_CHARS = 800_000;
@@ -88,60 +90,104 @@ async function extractTextFromPdfBuffer(buffer) {
       json: { error: "Decoded PDF is empty." }
     };
   }
-  if (buffer.length > MAX_FILE_BYTES) {
-    return {
-      ok: false,
-      status: 400,
-      json: {
-        error: `PDF file is too large (max ${MAX_FILE_BYTES / (1024 * 1024)} MB).`
-      }
-    };
-  }
 
-  let parsed;
   try {
-    parsed = await pdfParse(buffer);
+    const { contentText, numPages } = await extractTextFromPdfWithTextract(
+      buffer,
+      { maxPages: MAX_PDF_PAGES, maxBytes: MAX_FILE_BYTES }
+    );
+    return { ok: true, contentText, numPages };
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.error("PDF parse error:", e);
+    console.error("Textract extract error:", e);
+
+    if (e instanceof TextractNotConfiguredError) {
+      return {
+        ok: false,
+        status: 503,
+        json: {
+          code: "textract_not_configured",
+          error:
+            "PDF text extraction is temporarily unavailable. Please try again later."
+        }
+      };
+    }
+
+    if (e instanceof TextractTimeoutError) {
+      return {
+        ok: false,
+        status: 504,
+        json: {
+          code: "textract_timeout",
+          error: e.message
+        }
+      };
+    }
+
+    if (e instanceof TextractJobFailedError) {
+      return {
+        ok: false,
+        status: 400,
+        json: {
+          code: "pdf_unreadable",
+          error:
+            "Could not read this PDF. The file may be corrupted, encrypted, password-protected, or not a valid PDF. Try another file."
+        }
+      };
+    }
+
+    const msg = e instanceof Error ? e.message : String(e);
+
+    if (msg.includes("too large")) {
+      return {
+        ok: false,
+        status: 400,
+        json: { error: msg }
+      };
+    }
+
+    if (msg.includes("pages. Please upload")) {
+      return {
+        ok: false,
+        status: 400,
+        json: { error: msg }
+      };
+    }
+
+    if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
+      return {
+        ok: false,
+        status: 503,
+        json: {
+          code: "textract_not_configured",
+          error:
+            "PDF extraction region is misconfigured. Set AWS_REGION to a Textract region (e.g. eu-west-1) and use an S3 bucket in the same region."
+        }
+      };
+    }
+
+    if (msg === "NO_EXTRACTABLE_TEXT") {
+      return {
+        ok: false,
+        status: 400,
+        json: {
+          code: "pdf_no_extractable_text",
+          error:
+            "We could not find readable text in this PDF. Try a clearer scan, a different export, or another file."
+        }
+      };
+    }
+
     return {
       ok: false,
       status: 400,
       json: {
         code: "pdf_unreadable",
         error:
-          "Could not read this PDF. The file may be corrupted, encrypted, or not a real PDF. Try another file or export again from your source app."
+          "Could not extract text from this PDF. Try another file or a clearer document."
       }
     };
   }
-
-  const numPages = parsed.numpages || 0;
-  if (numPages > MAX_PDF_PAGES) {
-    return {
-      ok: false,
-      status: 400,
-      json: {
-        error: `This PDF has about ${numPages} pages. Please upload a PDF with at most ${MAX_PDF_PAGES} pages.`
-      }
-    };
-  }
-
-  const rawText = typeof parsed.text === "string" ? parsed.text : "";
-  const contentText = rawText.replace(/\u0000/g, "").trim();
-
-  if (!contentText.length) {
-    return {
-      ok: false,
-      status: 400,
-      json: {
-        code: "pdf_no_extractable_text",
-        error:
-          "This PDF has no text we can read. It may be a scan or photo of a page (image-only). Donish does not support OCR yet—use a PDF with selectable text (e.g. export “Print to PDF” from Word or Google Docs)."
-      }
-    };
-  }
-
-  return { ok: true, contentText, numPages };
 }
 
 function safeFileName(originalName) {

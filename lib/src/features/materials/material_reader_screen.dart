@@ -6,6 +6,9 @@ import '../../widgets/donish_snackbar.dart';
 import '../vocab/data/vocab_repository.dart';
 import '../vocab/data/word_lexicon_store.dart';
 import '../../core/network/api_client.dart';
+import 'material_reader_paginator.dart';
+import 'material_reader_swipe_coach.dart';
+import 'reader_coach_store.dart';
 
 const Color _kTextPrimary = Color(0xFF111827);
 const Color _kTextSecondary = Color(0xFF6B7280);
@@ -57,6 +60,8 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
   List<String> _paragraphs = [];
   final _repo = VocabRepository(ApiClient.instance);
   Map<String, WordLexiconEntry> _lexicon = {};
+  final PageController _pageController = PageController();
+  int _totalPages = 0;
 
   @override
   void initState() {
@@ -64,6 +69,12 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
     _title = widget.initialTitle;
     _load();
     _syncLexicon();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _syncLexicon() async {
@@ -128,7 +139,11 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         _title = title;
         _paragraphs = paras;
         _loading = false;
+        _totalPages = 0;
       });
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -152,15 +167,41 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
-        title: Text(
-          _title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.inter(
-            fontSize: 17,
-            fontWeight: FontWeight.w500,
-            color: _kTextPrimary,
-          ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 17,
+                fontWeight: FontWeight.w500,
+                color: _kTextPrimary,
+              ),
+            ),
+            if (!_loading && _error == null && _totalPages > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: AnimatedBuilder(
+                  animation: _pageController,
+                  builder: (context, _) {
+                    final current = _pageController.hasClients
+                        ? (_pageController.page ?? 0).round()
+                        : 0;
+                    final idx = current.clamp(0, _totalPages - 1);
+                    return Text(
+                      '${idx + 1} / $_totalPages',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _kTextSecondary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
         ),
       ),
       body: _buildBody(),
@@ -199,41 +240,272 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
         ),
       );
     }
+    return _PaginatedReaderBody(
+      title: _title,
+      paragraphs: _paragraphs,
+      lexicon: _lexicon,
+      userId: widget.userId,
+      materialId: widget.materialId,
+      vocabRepository: _repo,
+      pageController: _pageController,
+      onLexiconUpdated: _onLexiconUpdated,
+      onTotalPagesChanged: (total) {
+        if (_totalPages != total) {
+          setState(() => _totalPages = total);
+        }
+      },
+    );
+  }
+}
+
+class _PaginatedReaderBody extends StatefulWidget {
+  const _PaginatedReaderBody({
+    required this.title,
+    required this.paragraphs,
+    required this.lexicon,
+    required this.userId,
+    required this.materialId,
+    required this.vocabRepository,
+    required this.pageController,
+    required this.onLexiconUpdated,
+    required this.onTotalPagesChanged,
+  });
+
+  final String title;
+  final List<String> paragraphs;
+  final Map<String, WordLexiconEntry> lexicon;
+  final String userId;
+  final String materialId;
+  final VocabRepository vocabRepository;
+  final PageController pageController;
+  final void Function(WordLexiconEntry entry) onLexiconUpdated;
+  final void Function(int total) onTotalPagesChanged;
+
+  @override
+  State<_PaginatedReaderBody> createState() => _PaginatedReaderBodyState();
+}
+
+class _PaginatedReaderBodyState extends State<_PaginatedReaderBody> {
+  int _lastReportedTotal = -1;
+  List<ReaderPage>? _cachedPages;
+  Size? _cachedBodySize;
+  double _cachedBottomInset = -1;
+  bool _showSwipeCoach = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSwipeCoach();
+  }
+
+  Future<void> _initSwipeCoach() async {
+    final seen =
+        await ReaderCoachStore.instance.hasSeenSwipeCoach(widget.userId);
+    if (!mounted || seen) return;
+    setState(() => _showSwipeCoach = true);
+  }
+
+  void _dismissSwipeCoach({bool persist = true}) {
+    if (!_showSwipeCoach) return;
+    setState(() => _showSwipeCoach = false);
+    if (persist) {
+      ReaderCoachStore.instance.markSwipeCoachSeen(widget.userId);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PaginatedReaderBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.paragraphs != widget.paragraphs ||
+        oldWidget.title != widget.title) {
+      _cachedPages = null;
+    }
+  }
+
+  List<ReaderPage> _pagesForLayout(Size bodySize, double bottomInset) {
+    final contentWidth = bodySize.width -
+        MaterialReaderMetrics.horizontalPadding * 2;
+    final fullBodyHeight = bodySize.height -
+        MaterialReaderMetrics.pageTopPadding -
+        MaterialReaderMetrics.pageBottomPadding -
+        bottomInset;
+    final headerHeight = MaterialReaderMetrics.measureHeaderHeight(
+      title: widget.title,
+      maxWidth: contentWidth,
+    );
+    final firstBody = fullBodyHeight - headerHeight;
+    final otherBody = fullBodyHeight;
+
+    if (firstBody <= 0 || contentWidth <= 0) {
+      return [const ReaderPage(showHeader: true, segments: [])];
+    }
+
+    return paginateReaderContent(
+      paragraphs: widget.paragraphs,
+      contentWidth: contentWidth,
+      bodyHeightFirstPage: firstBody,
+      bodyHeightOtherPages: otherBody,
+    );
+  }
+
+  List<ReaderPage> _resolvePages(Size bodySize, double bottomInset) {
+    if (_cachedPages != null &&
+        _cachedBodySize == bodySize &&
+        _cachedBottomInset == bottomInset) {
+      return _cachedPages!;
+    }
+    final pages = _pagesForLayout(bodySize, bottomInset);
+    _cachedPages = pages;
+    _cachedBodySize = bodySize;
+    _cachedBottomInset = bottomInset;
+    return pages;
+  }
+
+  void _reportTotalPages(int total) {
+    if (_lastReportedTotal == total) return;
+    _lastReportedTotal = total;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onTotalPagesChanged(total);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final bottomInset = mq.viewPadding.bottom > mq.padding.bottom
         ? mq.viewPadding.bottom
         : mq.padding.bottom;
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, 32 + bottomInset),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bodySize = Size(constraints.maxWidth, constraints.maxHeight);
+        final pages = _resolvePages(bodySize, bottomInset);
+        _reportTotalPages(pages.length);
+
+        final showCoach = _showSwipeCoach && pages.length > 1;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (showCoach &&
+                    notification is ScrollStartNotification &&
+                    notification.depth == 0) {
+                  _dismissSwipeCoach();
+                }
+                return false;
+              },
+              child: PageView.builder(
+                controller: widget.pageController,
+                physics: const SmoothPageScrollPhysics(),
+                clipBehavior: Clip.hardEdge,
+                allowImplicitScrolling: true,
+                itemCount: pages.length,
+                itemBuilder: (context, index) {
+                  final page = pages[index];
+                  return RepaintBoundary(
+                    child: _ReaderPageTile(
+                      key: ValueKey<int>(index),
+                      page: page,
+                      title: widget.title,
+                      bottomInset: bottomInset,
+                      paragraphs: widget.paragraphs,
+                      lexicon: widget.lexicon,
+                      materialId: widget.materialId,
+                      vocabRepository: widget.vocabRepository,
+                      onLexiconUpdated: widget.onLexiconUpdated,
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (showCoach)
+              MaterialReaderSwipeCoach(
+                onDismiss: () => _dismissSwipeCoach(),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ReaderPageTile extends StatefulWidget {
+  const _ReaderPageTile({
+    super.key,
+    required this.page,
+    required this.title,
+    required this.bottomInset,
+    required this.paragraphs,
+    required this.lexicon,
+    required this.materialId,
+    required this.vocabRepository,
+    required this.onLexiconUpdated,
+  });
+
+  final ReaderPage page;
+  final String title;
+  final double bottomInset;
+  final List<String> paragraphs;
+  final Map<String, WordLexiconEntry> lexicon;
+  final String materialId;
+  final VocabRepository vocabRepository;
+  final void Function(WordLexiconEntry entry) onLexiconUpdated;
+
+  @override
+  State<_ReaderPageTile> createState() => _ReaderPageTileState();
+}
+
+class _ReaderPageTileState extends State<_ReaderPageTile>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final page = widget.page;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        MaterialReaderMetrics.horizontalPadding,
+        MaterialReaderMetrics.pageTopPadding,
+        MaterialReaderMetrics.horizontalPadding,
+        MaterialReaderMetrics.pageBottomPadding + widget.bottomInset,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _title,
-            style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: _kTextPrimary,
-              height: 1.25,
+          if (page.showHeader) ...[
+            Text(
+              widget.title,
+              style: MaterialReaderMetrics.titleTextStyle().copyWith(
+                color: _kTextPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Purple words are already known. Tap any word for Uzbek meaning.',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: _kTextSecondary,
-              height: 1.4,
+            const SizedBox(height: MaterialReaderMetrics.titleBottomGap),
+            Text(
+              MaterialReaderMetrics.hintText,
+              style: MaterialReaderMetrics.hintTextStyle().copyWith(
+                color: _kTextSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          _TappableText(
-            paragraphs: _paragraphs,
-            lexicon: _lexicon,
-            materialId: widget.materialId,
-            vocabRepository: _repo,
-            onLexiconUpdated: _onLexiconUpdated,
+            const SizedBox(height: MaterialReaderMetrics.headerBodyGap),
+          ],
+          Expanded(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: ClipRect(
+                child: _TappableText(
+                  paragraphs: widget.paragraphs,
+                  segments: page.segments,
+                  lexicon: widget.lexicon,
+                  materialId: widget.materialId,
+                  vocabRepository: widget.vocabRepository,
+                  onLexiconUpdated: widget.onLexiconUpdated,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -244,6 +516,7 @@ class _MaterialReaderScreenState extends State<MaterialReaderScreen> {
 class _TappableText extends StatefulWidget {
   const _TappableText({
     required this.paragraphs,
+    required this.segments,
     required this.lexicon,
     required this.materialId,
     required this.vocabRepository,
@@ -251,6 +524,7 @@ class _TappableText extends StatefulWidget {
   });
 
   final List<String> paragraphs;
+  final List<ReaderWordSegment> segments;
   final Map<String, WordLexiconEntry> lexicon;
   final String materialId;
   final VocabRepository vocabRepository;
@@ -265,19 +539,35 @@ class _TappableTextState extends State<_TappableText> {
 
   @override
   Widget build(BuildContext context) {
+    final children = <Widget>[];
+    for (var s = 0; s < widget.segments.length; s++) {
+      final seg = widget.segments[s];
+      if (seg.isEmpty) continue;
+      if (children.isNotEmpty) {
+        final prev = widget.segments[s - 1];
+        if (prev.paragraphIndex != seg.paragraphIndex) {
+          children.add(const SizedBox(height: MaterialReaderMetrics.paragraphGap));
+        }
+      }
+      final para = widget.paragraphs[seg.paragraphIndex];
+      final words = para
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .toList();
+      final slice = words.sublist(seg.startWord, seg.endWord);
+      children.add(
+        _ParagraphBlock(
+          words: slice,
+          lexicon: widget.lexicon,
+          onWordTap: (word, position) =>
+              _onWordTap(context, word, para, position),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < widget.paragraphs.length; i++) ...[
-          if (i > 0) const SizedBox(height: 16),
-          _ParagraphBlock(
-            text: widget.paragraphs[i],
-            lexicon: widget.lexicon,
-            onWordTap: (word, position) =>
-                _onWordTap(context, word, widget.paragraphs[i], position),
-          ),
-        ],
-      ],
+      mainAxisSize: MainAxisSize.min,
+      children: children,
     );
   }
 
@@ -309,21 +599,20 @@ class _TappableTextState extends State<_TappableText> {
 
 class _ParagraphBlock extends StatelessWidget {
   const _ParagraphBlock({
-    required this.text,
+    required this.words,
     required this.lexicon,
     required this.onWordTap,
   });
 
-  final String text;
+  final List<String> words;
   final Map<String, WordLexiconEntry> lexicon;
   final void Function(String word, Offset globalPosition) onWordTap;
 
   @override
   Widget build(BuildContext context) {
-    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Wrap(
-      spacing: 4,
-      runSpacing: 6,
+      spacing: MaterialReaderMetrics.wrapSpacing,
+      runSpacing: MaterialReaderMetrics.wrapRunSpacing,
       children: words.map((w) {
         final normalized = normalizeTappedWord(w);
         final entry = lexicon[normalized];
@@ -332,7 +621,10 @@ class _ParagraphBlock extends StatelessWidget {
         return GestureDetector(
           onTapDown: (details) => onWordTap(w, details.globalPosition),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+            padding: const EdgeInsets.symmetric(
+              horizontal: MaterialReaderMetrics.chipHorizontalPadding,
+              vertical: MaterialReaderMetrics.chipVerticalPadding,
+            ),
             decoration: BoxDecoration(
               color: saved
                   ? _kViolet
@@ -343,10 +635,7 @@ class _ParagraphBlock extends StatelessWidget {
             ),
             child: Text(
               '$w ',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                height: 1.6,
+              style: MaterialReaderMetrics.wordTextStyle().copyWith(
                 color: saved
                     ? Colors.white
                     : tapped

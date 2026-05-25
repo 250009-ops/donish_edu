@@ -550,7 +550,7 @@ class _EmptyMaterialsState extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Upload a short PDF (up to about 10 pages) to start reading in English. '
+          'Upload a PDF (up to about 30 pages) to start reading in English. '
           'Tap any word while you read to see an Uzbek translation and save words to your vocabulary.',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(

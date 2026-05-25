@@ -51,10 +51,11 @@ export const translateLimiter = rateLimit({
 
 export const extractPreviewLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 12,
+  max: 8,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
-    error: "Too many PDF previews. Wait a minute before trying another file."
+    error:
+      "Too many PDF extractions. Wait a minute before trying another file."
   }
 });

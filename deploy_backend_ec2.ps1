@@ -20,7 +20,7 @@ tar -czf $Tarball -C $BackendDir --exclude=node_modules --exclude=.env .
 Write-Host "Uploading to $Host_ ..."
 scp -i $Key -o ConnectTimeout=30 $Tarball "${Host_}:/tmp/backend-deploy.tgz"
 
-$remote = "set -e; cd ~/donish_edu/backend; cp .env /tmp/donish-backend.env.bak; tar -xzf /tmp/backend-deploy.tgz; cp /tmp/donish-backend.env.bak .env; npm ci; pm2 restart donish-api; pm2 save; curl -s http://127.0.0.1:4000/health"
+$remote = "set -e; cd ~/donish_edu/backend; cp .env /tmp/donish-backend.env.bak; tar -xzf /tmp/backend-deploy.tgz; cp /tmp/donish-backend.env.bak .env; grep -q '^AWS_REGION=' .env || printf '\nAWS_REGION=eu-west-1\n' >> .env; sed -i 's/^AWS_REGION=eu-north-1/AWS_REGION=eu-west-1/' .env; grep -q '^TEXTRACT_S3_BUCKET=' .env || printf 'TEXTRACT_S3_BUCKET=donish-textract-uploads-eu-west-1\n' >> .env; sed -i 's/^TEXTRACT_S3_BUCKET=donish-textract-uploads-prod/TEXTRACT_S3_BUCKET=donish-textract-uploads-eu-west-1/' .env; npm install --omit=dev; pm2 restart donish-api --update-env; pm2 save; curl -s http://127.0.0.1:4000/health"
 
 Write-Host "Installing on server and restarting PM2..."
 ssh -i $Key -o ConnectTimeout=30 -o StrictHostKeyChecking=yes $Host_ $remote

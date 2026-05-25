@@ -10,7 +10,11 @@ export const config = {
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   openAiApiKey: process.env.OPENAI_API_KEY || "",
   /** When set, Telegram bot must send `X-Bot-Secret` for /bot/create-user. */
-  botSharedSecret: process.env.BOT_SHARED_SECRET || ""
+  botSharedSecret: process.env.BOT_SHARED_SECRET || "",
+  /** AWS region for Textract + S3 (e.g. us-east-1). */
+  awsRegion: process.env.AWS_REGION || "",
+  /** Private bucket for temporary PDF uploads before Textract async jobs. */
+  textractS3Bucket: process.env.TEXTRACT_S3_BUCKET || ""
 };
 
 /**
@@ -32,6 +36,20 @@ export function validateDeploymentConfig() {
   if (!bot || bot.length < 16) {
     throw new Error(
       "Production requires BOT_SHARED_SECRET (min 16 chars). Use the same value in the bot's environment and send header X-Bot-Secret."
+    );
+  }
+
+  const region = process.env.AWS_REGION || "";
+  if (!region.trim()) {
+    throw new Error(
+      "Production requires AWS_REGION for Amazon Textract (e.g. us-east-1)."
+    );
+  }
+
+  const bucket = process.env.TEXTRACT_S3_BUCKET || "";
+  if (!bucket.trim()) {
+    throw new Error(
+      "Production requires TEXTRACT_S3_BUCKET (private S3 bucket for temporary PDF uploads)."
     );
   }
 }
