@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/local_date.dart';
 import '../../core/network/api_client.dart';
-import '../../widgets/skeleton.dart';
 import 'data/vocab_repository.dart';
 import 'data/word_lexicon_store.dart';
 import 'flashcards_screen.dart';
@@ -98,15 +97,38 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
       _loadError = null;
     });
     try {
-      final days = await _repo.listDaysWithWords();
-      await _syncLexicon();
-      final datesSet = days.toSet();
+      Set<String> datesSet = {};
+      try {
+        final days = await _repo.listDaysWithWords();
+        datesSet = days.toSet();
+      } catch (e) {
+        if (_entries.isEmpty) {
+          _loadError = e.toString();
+        }
+      }
+
+      try {
+        await _syncLexicon();
+      } catch (_) {}
+
       var selected = _selectedDate;
       final selectedKey = formatLocalDate(_selectedDate);
       if (datesSet.isNotEmpty && !datesSet.contains(selectedKey)) {
-        selected = parseLocalDate(days.first);
+        selected = parseLocalDate(datesSet.first);
       }
-      final list = await _repo.listForLocalDate(selected);
+
+      List<VocabEntry> list = [];
+      try {
+        list = await _repo.listForLocalDate(selected);
+        if (_loadError != null && list.isNotEmpty) {
+          _loadError = null;
+        }
+      } catch (e) {
+        if (_entries.isEmpty) {
+          _loadError = e.toString();
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _datesWithWords = datesSet;
@@ -114,7 +136,6 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
         _visibleMonth = DateTime(selected.year, selected.month, 1);
         _entries = list;
         _loading = false;
-        _loadError = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -174,115 +195,165 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _entries.isEmpty && _loadError == null) {
-      return const VocabScreenSkeleton();
-    }
-
-    if (_loadError != null && _entries.isEmpty) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF5F6FA),
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _loadError!,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _loadVocabulary,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    final showInitialSkeleton =
+        _loading && _entries.isEmpty && _loadError == null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadVocabulary,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              _StatsCard(
-                totalWords: _totalWords,
-                masteredCount: _masteredCount,
-                learningCount: _learningCount,
-                masteryPercent: _masteryPercent,
-                dateLabel: formatLocalDateLabel(_selectedDate),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () =>
-                    setState(() => _calendarExpanded = !_calendarExpanded),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Study calendar',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF111827),
-                        ),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        _calendarExpanded
-                            ? Icons.expand_less_rounded
-                            : Icons.expand_more_rounded,
+        child: showInitialSkeleton
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: Color(0xFF4C6FFF),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading vocabulary…',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
                         color: const Color(0xFF6B7280),
                       ),
+                    ),
+                  ],
+                ),
+              )
+            : RefreshIndicator(
+                onRefresh: _loadVocabulary,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _StatsCard(
+                      totalWords: _totalWords,
+                      masteredCount: _masteredCount,
+                      learningCount: _learningCount,
+                      masteryPercent: _masteryPercent,
+                      dateLabel: formatLocalDateLabel(_selectedDate),
+                    ),
+                    if (_loadError != null && _entries.isEmpty) ...[
+                      const SizedBox(height: 12),
+                      _VocabErrorBanner(
+                        message: _loadError!,
+                        onRetry: _loadVocabulary,
+                      ),
                     ],
-                  ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () => setState(
+                        () => _calendarExpanded = !_calendarExpanded,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Study calendar',
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF111827),
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              _calendarExpanded
+                                  ? Icons.expand_less_rounded
+                                  : Icons.expand_more_rounded,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_calendarExpanded) ...[
+                      const SizedBox(height: 8),
+                      VocabDayCalendar(
+                        visibleMonth: _visibleMonth,
+                        selectedDate: _selectedDate,
+                        datesWithWords: _datesWithWords,
+                        onMonthChanged: (m) =>
+                            setState(() => _visibleMonth = m),
+                        onDateSelected: (d) => _loadEntriesForDate(d),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    _SearchBar(
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
+                    ),
+                    const SizedBox(height: 16),
+                    _PracticeRow(
+                      entries: List<VocabEntry>.from(_entries),
+                      vocabRepository: _repo,
+                      selectedDateLabel: formatLocalDateLabel(_selectedDate),
+                      onReturnFromPractice: _loadVocabulary,
+                    ),
+                    const SizedBox(height: 20),
+                    if (_loading && _entries.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          color: Color(0xFF4C6FFF),
+                          backgroundColor: Color(0xFFE5E7EB),
+                        ),
+                      ),
+                    _WordsSection(
+                      words: _filteredWords,
+                      selectedDateLabel: formatLocalDateLabel(_selectedDate),
+                    ),
+                  ],
                 ),
               ),
-              if (_calendarExpanded) ...[
-                const SizedBox(height: 8),
-                VocabDayCalendar(
-                  visibleMonth: _visibleMonth,
-                  selectedDate: _selectedDate,
-                  datesWithWords: _datesWithWords,
-                  onMonthChanged: (m) => setState(() => _visibleMonth = m),
-                  onDateSelected: (d) => _loadEntriesForDate(d),
-                ),
-              ],
-              const SizedBox(height: 16),
-              _SearchBar(
-                onChanged: (value) =>
-                    setState(() => _searchQuery = value),
-              ),
-              const SizedBox(height: 16),
-              _PracticeRow(
-                entries: List<VocabEntry>.from(_entries),
-                vocabRepository: _repo,
-                selectedDateLabel: formatLocalDateLabel(_selectedDate),
-                onReturnFromPractice: _loadVocabulary,
-              ),
-              const SizedBox(height: 20),
-              _WordsSection(
-                words: _filteredWords,
-                selectedDateLabel: formatLocalDateLabel(_selectedDate),
-              ),
-            ],
+      ),
+    );
+  }
+}
+
+class _VocabErrorBanner extends StatelessWidget {
+  const _VocabErrorBanner({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: const Color(0xFF9A3412),
+            ),
           ),
-        ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }

@@ -1,0 +1,75 @@
+================================================================================
+DONISH — «MIRZO ULUGʻBEK VORISLARI» TANLOVI UCHUN BITTA PITCH SLAYD (OʻZBEKCHA)
+================================================================================
+Fayl: UTF-8. Canva / PowerPoint / Google Slides (16:9) ga joylash uchun.
+
+--------------------------------------------------------------------------------
+1) YAGONA BLOK — bitta slaydga nusxa (qisqartirilgan, professional)
+--------------------------------------------------------------------------------
+
+Donish
+Sunʼiy intellekt yordamida ingliz tilini tezroq va samaraliroq oʻrganish
+«Mirzo Ulugʻbek vorislari» tanlovi doirasida taqdim etilmoqda
+
+Muammo: oʻqishda har yangi soʻz — toʻxtash va chalkashlik; lugʻat tartibsiz yigʻiladi, tushunish sekinlashadi.
+
+Yechim: oʻz matnlaringiz (jumladan PDF) boʻyicha oʻqing; istalgan soʻzni bosing — AI kontekstda oʻzbekcha tushuntirib beradi; soʻzlar shaxsiy lugʻatingizda saqlanadi, flashcard va quiz bilan mustahkamlanadi.
+
+Hozirgi imkoniyatlar: PDF va oʻqish rejimi • soʻz bosish: lugʻat + kontekstli tarjima • shaxsiy lugʻat, flashcard, quiz • hisob Telegram orqali (@Donish_edu_bot)
+
+Keyingi bosqich (yoʻl xaritasi): nutq — AI bilan talaffuz va ogʻzaki mashq • yozish — AI bilan yozma topshiriq va tuzatish • tinglash — audio va tushunish mashqlari, AI tahlil
+
+Texnologiya: Flutter • Node.js (bulutdagi API) • OpenAI • Supabase • Telegram
+
+Boshlash: Telegram — @Donish_edu_bot  |  Ilova: Donish
+
+[Ixtiyoriy: jamoa / aloqa / demo — quyidagi bandlarni toʻldiring]
+
+--------------------------------------------------------------------------------
+2) BLOKLAR BOʻYICHA (slaydda joylashuv)
+--------------------------------------------------------------------------------
+
+--- Yuqori ---
+Donish
+Sunʼiy intellekt yordamida ingliz tilini tezroq va samaraliroq oʻrganish
+«Mirzo Ulugʻbek vorislari» tanlovi doirasida taqdim etilmoqda
+
+--- Muammo ---
+Ingliz tilini oʻqishda har yangi soʻz — toʻxtash va chalkashlik. Matnni chuqur tushunish va lugʻatni tartibli yigʻish qiyinlashadi.
+
+--- Yechim ---
+Tanlangan matnlar (jumladan PDF) asosida oʻqing. Har qanday soʻzni bosing — sunʼiy intellekt kontekstda oʻzbekcha izoh va tarjima beradi. Muhim soʻzlarni lugʻatga saqlang; flashcard va quiz orqali eslab qoling.
+
+--- Hozirgi imkoniyatlar (bugun) ---
+• Oʻqish: PDF yuklash, matnni tekshirish, qulay oʻquv rejimi
+• Soʻz bosish: lugʻat va kontekstga mos oʻzbekcha tarjima (AI)
+• Shaxsiy lugʻat va mashq: flashcard, quiz
+• Xavfsiz kirish: Telegram bot orqali hisob (@Donish_edu_bot)
+
+--- Keyingi bosqich — yoʻl xaritasi ---
+• Nutq: AI bilan talaffuz va ogʻzaki mashq (reja)
+• Yozish: AI bilan yozma topshiriqlar va tuzatish (reja)
+• Tinglash: audio/matn va tushunish mashqlari, AI tahlil (reja)
+(Eslatma: hozirgi versiya oʻqish va lugʻat–mashq zanjirida chuqurlashadi.)
+
+--- Texnologiya ---
+Flutter mobil ilova · Node.js backend (bulut) · OpenAI (tarjima va tushuntirish) · Supabase · Telegram foydalanuvchi oqimi
+
+--- Pastki CTA ---
+Boshlash: @Donish_edu_bot  |  Ilova nomi: Donish
+
+--------------------------------------------------------------------------------
+3) VIZUAL (qisqa eslatma)
+--------------------------------------------------------------------------------
+Aksent rang: #4C6FFF (binafsha). «Hozirgi» va «Reja» bloklarini ikki ustun yoki ikki rang bilan ajrating.
+Oʻng tomonda 1–2 skrinshot yoki ikonka: Oʻqish | Lugʻat | Mashq.
+
+--------------------------------------------------------------------------------
+4) IXTIYORIY BANDLAR — toʻldiring (slayd pasti yoki burchak)
+--------------------------------------------------------------------------------
+Jamoa nomi: _________________________________
+Aloqa (email yoki telefon): _________________________________
+Demo / video havolasi: _________________________________
+QR kod joyi: Telegram @Donish_edu_bot (t.me/Donish_edu_bot)
+
+================================================================================

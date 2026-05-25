@@ -41,6 +41,12 @@ pm2 restart donish-api    # or your PM2 app name
 pm2 save
 ```
 
+### Vocabulary / word-cache migration (required once)
+
+After deploying backend commit `62c29f6` or later, run **`db/migration_word_cache_calendar.sql`** in the **Supabase SQL Editor** (creates `user_word_cache`, adds `local_date` on `vocabulary_entries`). Without this, `/vocab/days` and `/vocab/lexicon` return 500 and the app Vocabulary tab looks empty.
+
+From Windows (project root): `.\deploy_backend_ec2.ps1` — pulls code on EC2 and restarts PM2. SSH must reach port 22; migration is still manual in Supabase.
+
 ## Telegram webhook (after deploy or domain change)
 
 On the server (needs `backend/.env` with `TELEGRAM_BOT_TOKEN`):
