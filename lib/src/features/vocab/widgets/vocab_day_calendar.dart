@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/local_date.dart';
 
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 
 /// Month grid calendar: dots on days with vocabulary, tap to select a day.
 /// Days before [minSelectableDate] and after [maxSelectableDate] are disabled.

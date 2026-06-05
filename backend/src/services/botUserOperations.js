@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { APP_DISPLAY_NAME } from "../branding.js";
+import { query } from "../db/pool.js";
 
 export const MIN_PASSWORD_LEN = 6;
 
@@ -23,24 +24,21 @@ export async function lookupTelegramUser(tid) {
     return { ok: false, error: "telegram_id is required." };
   }
 
-  const { data: row, error } = await supabaseAdmin
-    .from("users")
-    .select("telegram_id")
-    .eq("telegram_id", tid)
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `select telegram_id from users where telegram_id = $1 limit 1`,
+      [tid]
+    );
+    const row = rows[0];
+    if (!row) {
+      return { ok: true, registered: false, telegram_id: tid };
+    }
+    return { ok: true, registered: true, telegram_id: row.telegram_id };
+  } catch (error) {
     // eslint-disable-next-line no-console
     console.error("lookupTelegramUser:", error);
     return { ok: false, error: "Failed to look up user." };
   }
-
-  if (!row) {
-    return { ok: true, registered: false, telegram_id: tid };
-  }
-
-  return { ok: true, registered: true, telegram_id: row.telegram_id };
 }
 
 /**
@@ -62,41 +60,36 @@ export async function createTelegramUser(tid, password) {
     return { ok: false, status: 400, error: pwdErr };
   }
 
-  const { data: existing } = await supabaseAdmin
-    .from("users")
-    .select("id")
-    .eq("telegram_id", tid)
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { rows: existing } = await query(
+      `select id from users where telegram_id = $1 limit 1`,
+      [tid]
+    );
+    if (existing[0]) {
+      return {
+        ok: false,
+        status: 409,
+        error: `Already registered. Use the ${APP_DISPLAY_NAME} app to sign in.`
+      };
+    }
 
-  if (existing) {
-    return {
-      ok: false,
-      status: 409,
-      error: "Already registered. Use the Donish app to sign in."
-    };
-  }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const username = String(tid);
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const username = String(tid);
+    const { rows } = await query(
+      `insert into users (telegram_id, username, password_hash)
+       values ($1, $2, $3)
+       returning *`,
+      [tid, username, passwordHash]
+    );
 
-  const { data, error } = await supabaseAdmin
-    .from("users")
-    .insert({
-      telegram_id: tid,
-      username,
-      password_hash: passwordHash
-    })
-    .select("*")
-    .single();
-
-  if (error) {
+    const data = rows[0];
+    return { ok: true, id: data.id, telegram_id: data.telegram_id };
+  } catch (error) {
     // eslint-disable-next-line no-console
     console.error("createTelegramUser:", error);
     return { ok: false, status: 500, error: "Failed to create user." };
   }
-
-  return { ok: true, id: data.id, telegram_id: data.telegram_id };
 }
 
 /**
@@ -118,38 +111,29 @@ export async function resetTelegramUserPassword(tid, password) {
     return { ok: false, status: 400, error: pwdErr };
   }
 
-  const { data: existing, error: findErr } = await supabaseAdmin
-    .from("users")
-    .select("id")
-    .eq("telegram_id", tid)
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { rows: existing } = await query(
+      `select id from users where telegram_id = $1 limit 1`,
+      [tid]
+    );
+    if (!existing[0]) {
+      return {
+        ok: false,
+        status: 404,
+        error: "No account found for this Telegram user."
+      };
+    }
 
-  if (findErr) {
+    const passwordHash = await bcrypt.hash(password, 10);
+    await query(
+      `update users set password_hash = $1 where telegram_id = $2`,
+      [passwordHash, tid]
+    );
+
+    return { ok: true, telegram_id: tid };
+  } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("resetTelegramUserPassword find:", findErr);
+    console.error("resetTelegramUserPassword:", error);
     return { ok: false, status: 500, error: "Failed to update password." };
   }
-
-  if (!existing) {
-    return {
-      ok: false,
-      status: 404,
-      error: "No account found for this Telegram user."
-    };
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const { error: updErr } = await supabaseAdmin
-    .from("users")
-    .update({ password_hash: passwordHash })
-    .eq("telegram_id", tid);
-
-  if (updErr) {
-    // eslint-disable-next-line no-console
-    console.error("resetTelegramUserPassword update:", updErr);
-    return { ok: false, status: 500, error: "Failed to update password." };
-  }
-
-  return { ok: true, telegram_id: tid };
 }

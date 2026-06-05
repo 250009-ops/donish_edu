@@ -1,11 +1,11 @@
 {
-    "name": "donish_app",
-    "short_name": "donish_app",
+    "name": "Gotcha",
+    "short_name": "Gotcha",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#8840FE",
+    "theme_color": "#8840FE",
+    "description": "English to Uzbek learning app with PDF vocabulary, flashcards, and quizzes.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1,0 +1,63 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { SITE } from "../config/site";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const pageTitle = `${title} — ${SITE.name}`;
+---
+
+<BaseLayout title={pageTitle} description={description}>
+  <article class="legal">
+    <div class="container legal__inner">
+      <h1>{title}</h1>
+      <p class="legal__updated">Last updated: June 4, 2026</p>
+      <slot />
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .legal {
+    padding: 3rem 0 5rem;
+    background: #fff;
+  }
+
+  .legal__inner {
+    max-width: 42rem;
+  }
+
+  .legal h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  .legal__updated {
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+  }
+
+  .legal :global(h2) {
+    font-size: 1.25rem;
+    margin-top: 2rem;
+  }
+
+  .legal :global(p),
+  .legal :global(li) {
+    color: var(--color-body);
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+
+  .legal :global(ul) {
+    padding-left: 1.25rem;
+  }
+
+  .legal :global(a) {
+    font-weight: 500;
+  }
+</style>

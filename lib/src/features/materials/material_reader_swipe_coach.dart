@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const Color _kCoachViolet = Color(0xFF4C6FFF);
+const Color _kCoachViolet = Color(0xFF8840FE);
 
 /// Non-blocking swipe hint overlay; auto-dismisses after [displayDuration].
 class MaterialReaderSwipeCoach extends StatefulWidget {

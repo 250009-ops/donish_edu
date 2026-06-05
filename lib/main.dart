@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:google_fonts/google_fonts.dart';
-
-
-
 import 'src/app_shell.dart';
 
+import 'src/core/config/app_branding.dart';
 import 'src/core/network/api_client.dart';
 
 import 'src/features/auth/data/auth_repository.dart';
@@ -39,11 +36,11 @@ class DonishApp extends StatelessWidget {
 
       useMaterial3: true,
 
-      colorSchemeSeed: const Color(0xFF4C6FFF),
+      colorSchemeSeed: AppBranding.primary,
 
       scaffoldBackgroundColor: const Color(0xFFF5F6FA),
 
-      textTheme: GoogleFonts.interTextTheme(),
+      textTheme: AppBranding.textTheme(),
 
     );
 
@@ -51,7 +48,7 @@ class DonishApp extends StatelessWidget {
 
     return MaterialApp(
 
-      title: 'Donish',
+      title: AppBranding.displayName,
 
       debugShowCheckedModeBanner: false,
 

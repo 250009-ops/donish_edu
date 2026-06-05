@@ -1,0 +1,53 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { SITE } from "../config/site";
+---
+
+<LegalLayout
+  title="Privacy Policy"
+  description={`How ${SITE.name} collects, uses, and protects your data when you use our English-to-Uzbek learning app.`}
+>
+  <p>
+    {SITE.name} ("we", "us") operates the {SITE.name} mobile app and website at {SITE.url}.
+    This policy explains how we handle personal information.
+  </p>
+
+  <h2>Information we collect</h2>
+  <ul>
+    <li><strong>Account data:</strong> Telegram ID, username, and password hash when you register via our Telegram bot.</li>
+    <li><strong>Learning data:</strong> Uploaded PDFs, extracted text, saved vocabulary, flashcard progress, and quiz statistics.</li>
+    <li><strong>Technical data:</strong> Server logs (IP address, request time) for security and rate limiting.</li>
+    <li><strong>Payment data:</strong> When you subscribe to Premium, payment is processed by Lemon Squeezy. We do not store full card numbers.</li>
+  </ul>
+
+  <h2>How we use your data</h2>
+  <p>
+    We use your data to provide the service (PDF processing, translations, vocabulary storage),
+    authenticate you, improve reliability, and process subscriptions. We do not sell your personal data.
+  </p>
+
+  <h2>PDF processing</h2>
+  <p>
+    PDFs you upload are processed on our servers to extract text (including OCR for scans).
+    Content is stored securely and associated with your account.
+  </p>
+
+  <h2>Third parties</h2>
+  <ul>
+    <li><strong>Telegram:</strong> For bot registration and authentication flows.</li>
+    <li><strong>OpenAI:</strong> For word translation services.</li>
+    <li><strong>Lemon Squeezy:</strong> For subscription billing.</li>
+  </ul>
+
+  <h2>Data retention</h2>
+  <p>
+    We retain your account and learning data while your account is active. You may request deletion
+    by contacting <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions: <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a> or
+    <a href={SITE.telegramUrl}>Telegram</a>.
+  </p>
+</LegalLayout>

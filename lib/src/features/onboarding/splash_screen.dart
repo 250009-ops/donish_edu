@@ -4,15 +4,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/config/app_branding.dart';
+
 /// Animated splash shown on every cold app launch (~2.7s).
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key, required this.onComplete});
 
   final VoidCallback onComplete;
 
-  static const primary = Color(0xFF4C6FFF);
-  static const secondary = Color(0xFF8E54E9);
-  static const _logoAsset = 'assets/images/logo.png';
+  static const primary = AppBranding.primary;
+  static const secondary = AppBranding.primaryLight;
+  static const _logoAsset = AppBranding.logoAsset;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -30,9 +32,6 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _logoScale;
   late final Animation<double> _logoRotation;
   late final Animation<double> _glowOpacity;
-  late final Animation<double> _sparkleScale;
-  late final Animation<double> _titleOpacity;
-  late final Animation<double> _titleSlide;
   late final Animation<double> _taglineOpacity;
   late final Animation<double> _taglineSlide;
   late final Animation<double> _dotsOpacity;
@@ -86,27 +85,6 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(
         parent: _timeline,
         curve: const Interval(0.11, 0.25, curve: Curves.easeOut),
-      ),
-    );
-
-    _sparkleScale = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _timeline,
-        curve: const Interval(0.22, 0.38, curve: Curves.elasticOut),
-      ),
-    );
-
-    _titleOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _timeline,
-        curve: const Interval(0.30, 0.48, curve: Curves.easeOut),
-      ),
-    );
-
-    _titleSlide = Tween<double>(begin: 24, end: 0).animate(
-      CurvedAnimation(
-        parent: _timeline,
-        curve: const Interval(0.30, 0.48, curve: Curves.easeOutCubic),
       ),
     );
 
@@ -203,9 +181,7 @@ class _SplashScreenState extends State<SplashScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildLogoCluster(),
-                    const SizedBox(height: 28),
-                    _buildTitle(),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
                     _buildTagline(),
                     const SizedBox(height: 40),
                     _buildLoadingDots(),
@@ -224,24 +200,24 @@ class _SplashScreenState extends State<SplashScreen>
     final shadowBlur = 24.0 + (_pulse.value * 16);
 
     return SizedBox(
-      width: 160,
-      height: 160,
+      width: 180,
+      height: 180,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
           Opacity(
-            opacity: _glowOpacity.value * 0.55,
+            opacity: _glowOpacity.value * 0.5,
             child: Container(
-              width: 140,
-              height: 140,
+              width: 168,
+              height: 168,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(36),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.35),
-                    blurRadius: 40,
-                    spreadRadius: 8,
+                    color: Colors.white.withOpacity(0.28),
+                    blurRadius: 48,
+                    spreadRadius: 6,
                   ),
                 ],
               ),
@@ -252,79 +228,41 @@ class _SplashScreenState extends State<SplashScreen>
             child: Transform.rotate(
               angle: _logoRotation.value,
               child: Container(
-                width: 112,
-                height: 112,
+                width: 148,
+                height: 148,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.18 * pulseValue),
+                      color: Colors.black.withOpacity(0.22 * pulseValue),
                       blurRadius: shadowBlur,
-                      offset: const Offset(0, 12),
+                      offset: const Offset(0, 14),
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.all(22),
-                child: Image.asset(
-                  SplashScreen._logoAsset,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.menu_book_rounded,
-                    color: SplashScreen.primary,
-                    size: 40,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Transform.scale(
-              scale: _sparkleScale.value,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFB300).withOpacity(0.5),
-                      blurRadius: 12,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: Image.asset(
+                    SplashScreen._logoAsset,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => ColoredBox(
+                      color: SplashScreen.primary,
+                      child: Center(
+                        child: Text(
+                          AppBranding.displayName,
+                          style: AppBranding.wordmark(
+                            fontSize: 28,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.auto_awesome,
-                  color: Colors.white,
-                  size: 18,
+                  ),
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTitle() {
-    return Opacity(
-      opacity: _titleOpacity.value,
-      child: Transform.translate(
-        offset: Offset(0, _titleSlide.value),
-        child: Text(
-          'Donish',
-          style: GoogleFonts.inter(
-            fontSize: 36,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: -0.5,
-          ),
-        ),
       ),
     );
   }
@@ -335,11 +273,11 @@ class _SplashScreenState extends State<SplashScreen>
       child: Transform.translate(
         offset: Offset(0, _taglineSlide.value),
         child: Text(
-          'Master Uzbek Through Reading',
-          style: GoogleFonts.inter(
+          AppBranding.tagline,
+          style: AppBranding.wordmark(
             fontSize: 15,
-            fontWeight: FontWeight.w400,
             color: Colors.white.withOpacity(0.92),
+            fontWeight: FontWeight.w400,
           ),
           textAlign: TextAlign.center,
         ),

@@ -1,4 +1,4 @@
-/** Public HTTPS base URL for the Donish API (EC2 + nginx). */
+/** Public HTTPS base URL for the Gotcha API (EC2 + nginx). */
 export const DEFAULT_PUBLIC_API_BASE_URL = "https://api.donish.live";
 
 export function resolvePublicApiBaseUrl() {

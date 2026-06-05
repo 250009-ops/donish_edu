@@ -261,7 +261,7 @@ class VocabScreenState extends State<VocabScreen> with WidgetsBindingObserver {
                   padding: EdgeInsets.only(bottom: 12),
                   child: LinearProgressIndicator(
                     minHeight: 2,
-                    color: Color(0xFF4C6FFF),
+                    color: Color(0xFF8840FE),
                     backgroundColor: Color(0xFFE5E7EB),
                   ),
                 ),
@@ -416,7 +416,7 @@ class _StatsCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [Color(0xFF4C6FFF), Color(0xFF8E54E9)],
+          colors: [Color(0xFF8840FE), Color(0xFF9B5FFF)],
         ),
       ),
       child: Row(
@@ -653,8 +653,8 @@ class _PracticeCard extends StatelessWidget {
     final colors = disabled
         ? [const Color(0xFFD1D5DB), const Color(0xFFE5E7EB)]
         : isPrimary
-            ? const [Color(0xFF4C6FFF), Color(0xFF8E54E9)]
-            : const [Color(0xFF8E54E9), Color(0xFFB46BFF)];
+            ? const [Color(0xFF8840FE), Color(0xFF9B5FFF)]
+            : const [Color(0xFF9B5FFF), Color(0xFFB98CFF)];
 
     return Opacity(
       opacity: disabled ? 0.7 : 1,
@@ -807,7 +807,7 @@ class _WordCard extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: saved
-                      ? const Color(0xFF4C6FFF)
+                      ? const Color(0xFF8840FE)
                       : const Color(0xFFEDE9FE),
                   borderRadius: BorderRadius.circular(999),
                 ),
@@ -815,7 +815,7 @@ class _WordCard extends StatelessWidget {
                   tag,
                   style: GoogleFonts.inter(
                     fontSize: 11,
-                    color: saved ? Colors.white : const Color(0xFF4C6FFF),
+                    color: saved ? Colors.white : const Color(0xFF8840FE),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -823,7 +823,7 @@ class _WordCard extends StatelessWidget {
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.volume_up_rounded),
-                color: const Color(0xFF4C6FFF),
+                color: const Color(0xFF8840FE),
                 onPressed: () {},
               ),
             ],

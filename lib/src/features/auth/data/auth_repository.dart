@@ -35,20 +35,31 @@ class AuthRepository {
     }
 
     final user = json['user'];
-    final telegramId = user is Map<String, dynamic>
-        ? user['telegram_id']
-        : null;
-    final userId = telegramId?.toString() ?? id.trim();
-    final createdAt = user is Map<String, dynamic>
-        ? user['created_at'] as String?
-        : null;
+    if (user is! Map<String, dynamic>) {
+      throw const AuthException('Unexpected login response from server.');
+    }
+
+    final rawTelegramId = user['telegram_id'];
+    final userId = rawTelegramId == null
+        ? id.trim()
+        : rawTelegramId.toString();
+    final createdAt = user['created_at'];
+    final memberSinceIso =
+        createdAt is String ? createdAt : createdAt?.toString();
 
     _apiClient.setToken(token);
-    await _sessionStore.save(
-      token: token,
-      userId: userId,
-      memberSinceIso: createdAt,
-    );
+    try {
+      await _sessionStore.save(
+        token: token,
+        userId: userId,
+        memberSinceIso: memberSinceIso,
+      );
+    } catch (e) {
+      throw AuthException(
+        'Signed in, but could not save session on this device. '
+        'Try again or reinstall the app. ($e)',
+      );
+    }
     return userId;
   }
 

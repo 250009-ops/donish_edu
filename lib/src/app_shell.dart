@@ -9,7 +9,7 @@ import 'widgets/donish_top_bar.dart';
 const Color _kAmber = Color(0xFFF59E0B);
 
 /// Violet/purplish used for upload state in bottom nav.
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.userId, this.onLogOut});
@@ -224,7 +224,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        isActive ? const Color(0xFF4C6FFF) : const Color(0xFF9CA4B8);
+        isActive ? const Color(0xFF8840FE) : const Color(0xFF9CA4B8);
     return InkWell(
       onTap: onTap,
       child: Column(

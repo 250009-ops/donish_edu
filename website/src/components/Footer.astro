@@ -1,0 +1,175 @@
+---
+import Logo from "./Logo.astro";
+import { SITE } from "../config/site";
+
+interface Props {
+  minimal?: boolean;
+}
+
+const { minimal = false } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="footer" class:list={{ "footer--minimal": minimal }}>
+  {
+    minimal ? (
+      <div class="container footer__minimal">
+        <p>
+          <a href="/home">About {SITE.name}</a>
+          <span aria-hidden="true"> · </span>
+          <a href="/privacy">Privacy</a>
+          <span aria-hidden="true"> · </span>
+          <a href="/terms">Terms</a>
+          <span aria-hidden="true"> · </span>
+          <a href={`mailto:${SITE.supportEmail}`}>Support</a>
+        </p>
+        <p class="footer__copy">&copy; {year} {SITE.name}</p>
+      </div>
+    ) : (
+      <>
+        <div class="container footer__grid">
+          <div class="footer__brand">
+            <Logo />
+            <p>
+              English-to-Uzbek learning platform for Uzbek speakers mastering
+              English through real reading materials.
+            </p>
+          </div>
+          <div>
+            <h3>Product</h3>
+            <ul>
+              <li><a href="/home#features">Features</a></li>
+              <li><a href="/home#pricing">Pricing</a></li>
+              <li><a href="/home#faq">FAQ</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3>Legal</h3>
+            <ul>
+              <li><a href="/privacy">Privacy Policy</a></li>
+              <li><a href="/terms">Terms of Service</a></li>
+              <li><a href="/refund">Refund Policy</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3>Connect</h3>
+            <ul>
+              <li>
+                <a href={SITE.telegramUrl} rel="noopener noreferrer">
+                  Telegram
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="container footer__bottom">
+          <p>&copy; {year} {SITE.name}. All rights reserved.</p>
+          <p>Payments processed by Lemon Squeezy.</p>
+        </div>
+      </>
+    )
+  }
+</footer>
+
+<style>
+  .footer {
+    background: var(--color-footer);
+    color: #94a3b8;
+    padding: 4rem 0 2rem;
+  }
+
+  .footer--minimal {
+    background: #fff;
+    color: var(--color-muted);
+    padding: 2rem 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .footer__minimal {
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .footer__minimal a {
+    color: var(--color-muted);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .footer__minimal a:hover {
+    color: var(--color-primary);
+  }
+
+  .footer__copy {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .footer__grid {
+    display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 2.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .footer h3 {
+    color: #f8fafc;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 1rem;
+  }
+
+  .footer ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .footer a {
+    color: #cbd5e1;
+    text-decoration: none;
+  }
+
+  .footer a:hover {
+    color: #fff;
+  }
+
+  .footer__brand p {
+    margin-top: 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    max-width: 22rem;
+  }
+
+  .footer__brand :global(.logo) {
+    color: #f8fafc;
+  }
+
+  .footer__bottom {
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    padding-top: 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .footer__bottom p {
+    margin: 0.25rem 0;
+  }
+
+  @media (max-width: 768px) {
+    .footer__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .footer__brand {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

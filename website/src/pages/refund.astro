@@ -1,0 +1,33 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { SITE } from "../config/site";
+---
+
+<LegalLayout
+  title="Refund Policy"
+  description={`Refund policy for ${SITE.name} Premium subscriptions processed via Lemon Squeezy.`}
+>
+  <p>
+    Premium subscriptions for {SITE.name} are sold through Lemon Squeezy. This policy describes how refunds work.
+  </p>
+
+  <h2>Free tier</h2>
+  <p>The free plan does not involve charges and is not subject to refunds.</p>
+
+  <h2>Premium subscriptions</h2>
+  <ul>
+    <li>You may cancel future renewals anytime via your Lemon Squeezy customer portal.</li>
+    <li>
+      If you believe you were charged in error or experience a technical issue preventing use of Premium
+      features, contact us within 14 days at
+      <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>.
+    </li>
+    <li>Refunds are issued at our discretion for duplicate charges or verified service failures.</li>
+  </ul>
+
+  <h2>How to request a refund</h2>
+  <p>
+    Email {SITE.supportEmail} with your account Telegram ID, purchase date, and reason.
+    We will coordinate with Lemon Squeezy when applicable.
+  </p>
+</LegalLayout>

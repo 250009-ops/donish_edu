@@ -1,4 +1,5 @@
 import axios from "axios";
+import { APP_DISPLAY_NAME } from "../branding.js";
 import {
   createTelegramUser,
   lookupTelegramUser,
@@ -59,7 +60,7 @@ export function attachDonishBotHandlers(bot, options) {
           // eslint-disable-next-line no-console
           console.error("lookupTelegramUser (internal):", look.error);
           await ctx.reply(
-            "I couldn't reach Donish right now. Please try /start again in a minute."
+            `I couldn't reach ${APP_DISPLAY_NAME} right now. Please try /start again in a minute.`
           );
           return;
         }
@@ -67,7 +68,7 @@ export function attachDonishBotHandlers(bot, options) {
           const tid = look.telegram_id ?? chatId;
           await session.setStep(chatId, STATES.IDLE);
           await ctx.reply(
-            `Welcome back to Donish!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
+            `Welcome back to ${APP_DISPLAY_NAME}!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
           );
           return;
         }
@@ -82,7 +83,7 @@ export function attachDonishBotHandlers(bot, options) {
             const tid = look.data.telegram_id ?? chatId;
             await session.setStep(chatId, STATES.IDLE);
             await ctx.reply(
-              `Welcome back to Donish!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
+              `Welcome back to ${APP_DISPLAY_NAME}!\n\nYour ID: ${tid}\n\nPasswords are stored securely (hashed) — I can't show your old password. Sign in to the app with this ID and the password you set.\n\nForgot it? Send /reset_password and I'll ask you for a new password.`
             );
             return;
           }
@@ -93,7 +94,7 @@ export function attachDonishBotHandlers(bot, options) {
             err?.response?.data || err.message
           );
           await ctx.reply(
-            "I couldn't reach Donish right now. Please try /start again in a minute."
+            `I couldn't reach ${APP_DISPLAY_NAME} right now. Please try /start again in a minute.`
           );
           return;
         }
@@ -103,13 +104,13 @@ export function attachDonishBotHandlers(bot, options) {
         (await session.setStep(chatId, STATES.AWAITING_PASSWORD)) !== false;
       if (!persisted) {
         await ctx.reply(
-          "Welcome to Donish!\n\nAccount setup is unavailable: the server could not save your session. Ask the admin to create the `telegram_bot_sessions` table in Supabase (see backend/db/migration_telegram_bot_sessions.sql), then try /start again."
+          `Welcome to ${APP_DISPLAY_NAME}!\n\nAccount setup is unavailable: the server could not save your session. Ask the admin to check the database (telegram_bot_sessions table), then try /start again.`
         );
         return;
       }
 
       await ctx.reply(
-        "Welcome to Donish!\n\nChoose a password (at least 6 characters, must not start with /). Send it in your next message — you'll sign in to the app with your Telegram ID and this password."
+        `Welcome to ${APP_DISPLAY_NAME}!\n\nChoose a password (at least 6 characters, must not start with /). Send it in your next message — you'll sign in to the app with your Telegram ID and this password.`
       );
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -131,7 +132,7 @@ export function attachDonishBotHandlers(bot, options) {
         }
         if (!look.registered) {
           await ctx.reply(
-            "You don't have a Donish account yet. Send /start to register."
+            `You don't have a ${APP_DISPLAY_NAME} account yet. Send /start to register.`
           );
           return;
         }
@@ -144,7 +145,7 @@ export function attachDonishBotHandlers(bot, options) {
           );
           if (!look.data?.registered) {
             await ctx.reply(
-              "You don't have a Donish account yet. Send /start to register."
+              `You don't have a ${APP_DISPLAY_NAME} account yet. Send /start to register.`
             );
             return;
           }
@@ -168,7 +169,7 @@ export function attachDonishBotHandlers(bot, options) {
         return;
       }
       await ctx.reply(
-        "Send your new password in one message (at least 6 characters, must not start with /). You'll use it with your Donish ID in the app."
+        `Send your new password in one message (at least 6 characters, must not start with /). You'll use it with your ${APP_DISPLAY_NAME} ID in the app.`
       );
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -194,7 +195,7 @@ export function attachDonishBotHandlers(bot, options) {
           if (resetRes.ok) {
             const tid = resetRes.telegram_id ?? chatId;
             await ctx.reply(
-              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the Donish app with this ID and your new password.`
+              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the ${APP_DISPLAY_NAME} app with this ID and your new password.`
             );
           } else {
             await ctx.reply(
@@ -211,7 +212,7 @@ export function attachDonishBotHandlers(bot, options) {
             );
             const tid = resetRes.data?.telegram_id ?? chatId;
             await ctx.reply(
-              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the Donish app with this ID and your new password.`
+              `Your password was updated.\n\nYour ID: ${tid}\n\nSign in to the ${APP_DISPLAY_NAME} app with this ID and your new password.`
             );
           } catch (error) {
             const msg = error?.response?.data?.error;
@@ -238,11 +239,11 @@ export function attachDonishBotHandlers(bot, options) {
           if (createRes.ok) {
             const telegramId = createRes.telegram_id ?? chatId;
             await ctx.reply(
-              `Your Donish account is ready!\n\nYour ID: ${telegramId}\nPassword: the one you just sent (save it — I won't show it again).\n\nUse this ID and password to sign in to the Donish app. Keep your ID private.`
+              `Your ${APP_DISPLAY_NAME} account is ready!\n\nYour ID: ${telegramId}\nPassword: the one you just sent (save it — I won't show it again).\n\nUse this ID and password to sign in to the ${APP_DISPLAY_NAME} app. Keep your ID private.`
             );
           } else if (createRes.status === 409) {
             await ctx.reply(
-              "You already have an account.\n\nSend /start to see your Donish ID. To change your password, send /reset_password."
+              `You already have an account.\n\nSend /start to see your ${APP_DISPLAY_NAME} ID. To change your password, send /reset_password.`
             );
           } else {
             await ctx.reply(
@@ -263,7 +264,7 @@ export function attachDonishBotHandlers(bot, options) {
 
           const telegramId = createRes.data?.telegram_id ?? chatId;
           await ctx.reply(
-            `Your Donish account is ready!\n\nYour ID: ${telegramId}\nPassword: the one you just sent (save it — I won't show it again).\n\nUse this ID and password to sign in to the Donish app. Keep your ID private.`
+            `Your ${APP_DISPLAY_NAME} account is ready!\n\nYour ID: ${telegramId}\nPassword: the one you just sent (save it — I won't show it again).\n\nUse this ID and password to sign in to the ${APP_DISPLAY_NAME} app. Keep your ID private.`
           );
           await session.setStep(chatId, STATES.IDLE);
           return;
@@ -277,7 +278,7 @@ export function attachDonishBotHandlers(bot, options) {
           );
           if (status === 409) {
             await ctx.reply(
-              "You already have an account.\n\nSend /start to see your Donish ID. To change your password, send /reset_password."
+              `You already have an account.\n\nSend /start to see your ${APP_DISPLAY_NAME} ID. To change your password, send /reset_password.`
             );
           } else {
             await ctx.reply(
@@ -290,7 +291,7 @@ export function attachDonishBotHandlers(bot, options) {
       }
 
       await ctx.reply(
-        "Send /start to register or see your Donish ID. Forgot your password? Send /reset_password."
+        `Send /start to register or see your ${APP_DISPLAY_NAME} ID. Forgot your password? Send /reset_password.`
       );
     } catch (err) {
       // eslint-disable-next-line no-console

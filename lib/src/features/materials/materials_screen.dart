@@ -7,7 +7,7 @@ import '../../core/network/api_client.dart';
 import 'data/materials_cache_store.dart';
 import 'material_reader_screen.dart';
 
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 
 const List<String> _typeOptions = [
   'All Types',
@@ -810,7 +810,7 @@ class _MaterialsFilterDropdownState extends State<_MaterialsFilterDropdown> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF4C6FFF),
+          color: const Color(0xFF8840FE),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -990,7 +990,7 @@ class _MaterialCard extends StatelessWidget {
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF4C6FFF),
+                                      color: const Color(0xFF8840FE),
                                     ),
                                   ),
                                 ),

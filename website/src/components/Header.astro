@@ -1,0 +1,230 @@
+---
+import Logo from "./Logo.astro";
+import { NAV, SITE } from "../config/site";
+
+interface Props {
+  appHome?: boolean;
+}
+
+const { appHome = false } = Astro.props;
+---
+
+<header class="header" id="top">
+  <div class="header__inner container">
+    <Logo />
+    {
+      appHome ? (
+        <nav class="header__nav header__nav--app" aria-label="App navigation">
+          <a href="/home">About {SITE.name}</a>
+        </nav>
+      ) : (
+        <nav class="header__nav" aria-label="Main navigation">
+          <ul class="header__links">
+            {
+              NAV.map((item) => (
+                <li>
+                  <a href={item.href}>{item.label}</a>
+                </li>
+              ))
+            }
+          </ul>
+        </nav>
+      )
+    }
+    <div class="header__actions">
+      {
+        !appHome && (
+          <a class="header__signin" href={SITE.telegramUrl} rel="noopener noreferrer">
+            Sign in via Telegram
+          </a>
+        )
+      }
+      <a class="btn btn--primary" href={SITE.telegramUrl} rel="noopener noreferrer">
+        {appHome ? "Open Telegram Bot" : "Get started"}
+      </a>
+    </div>
+    <button
+      type="button"
+      class="header__menu-btn"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      aria-label="Open menu"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+  <div class="header__mobile" id="mobile-menu" hidden>
+    <nav aria-label="Mobile navigation">
+      <ul>
+        {
+          appHome ? (
+            <li>
+              <a href="/home">About {SITE.name}</a>
+            </li>
+          ) : (
+            NAV.map((item) => (
+              <li>
+                <a href={item.href}>{item.label}</a>
+              </li>
+            ))
+          )
+        }
+        <li>
+          <a href={SITE.telegramUrl} rel="noopener noreferrer">Get started</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: var(--shadow-nav);
+  }
+
+  .header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-height: var(--nav-height);
+  }
+
+  .header__nav {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+
+  .header__nav--app a {
+    color: var(--color-muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9375rem;
+  }
+
+  .header__nav--app a:hover {
+    color: var(--color-heading);
+  }
+
+  .header__links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .header__links a {
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .header__links a:hover {
+    color: var(--color-heading);
+  }
+
+  .header__actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .header__signin {
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .header__signin:hover {
+    color: var(--color-heading);
+  }
+
+  .header__menu-btn {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    padding: 0.5rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .header__menu-btn span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--color-heading);
+    border-radius: 1px;
+  }
+
+  .header__mobile {
+    display: none;
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+    background: #fff;
+  }
+
+  .header__mobile ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .header__mobile a {
+    color: var(--color-heading);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  @media (max-width: 900px) {
+    .header__nav,
+    .header__actions .header__signin {
+      display: none;
+    }
+
+    .header__actions {
+      display: none;
+    }
+
+    .header__menu-btn {
+      display: flex;
+    }
+
+    .header__mobile[hidden] {
+      display: none;
+    }
+
+    .header__mobile:not([hidden]) {
+      display: block;
+    }
+  }
+</style>
+
+<script>
+  const btn = document.querySelector(".header__menu-btn");
+  const menu = document.getElementById("mobile-menu");
+  if (btn && menu) {
+    btn.addEventListener("click", () => {
+      const open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!open));
+      btn.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+      menu.hidden = open;
+    });
+  }
+</script>

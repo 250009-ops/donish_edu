@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data/auth_repository.dart';
+import '../../core/config/app_branding.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 
@@ -55,11 +56,14 @@ class _LoginScreenState extends State<LoginScreen> {
         _isSubmitting = false;
         _errorMessage = e.message;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _errorMessage = 'Something went wrong. Please try again.';
+        final detail = e.toString().replaceFirst(RegExp(r'^\w+Exception:\s*'), '');
+        _errorMessage = detail.isNotEmpty
+            ? detail
+            : 'Something went wrong. Please try again.';
       });
     }
   }
@@ -98,9 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF4C6FFF),
-              Color(0xFF8E54E9),
-              Color(0xFFFFE8C7),
+              AppBranding.primary,
+              AppBranding.primaryLight,
+              Color(0xFFE8D9FF),
             ],
           ),
         ),
@@ -116,9 +120,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 Text(
                   'Secure verification powered by Telegram',
-                  style: GoogleFonts.inter(
+                  style: AppBranding.wordmark(
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.85),
+                    fontWeight: FontWeight.w400,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -130,40 +135,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  static const String _logoAsset = 'assets/images/logo.png';
-
   Widget _buildLogoBlock() {
-    return Column(
-      children: [
-        Image.asset(
-          _logoAsset,
-          width: 72,
-          height: 72,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.menu_book_rounded,
-            color: Colors.white,
-            size: 32,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Donish',
-          style: GoogleFonts.inter(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'English \u2192 Uzbek Learning Platform',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: Colors.white.withOpacity(0.9),
-          ),
-        ),
-      ],
+    return Text(
+      AppBranding.displayName,
+      style: AppBranding.wordmark(
+        fontSize: 52,
+        color: Colors.white,
+      ),
+      textAlign: TextAlign.center,
     );
   }
 
@@ -188,8 +167,8 @@ class _LoginScreenState extends State<LoginScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Sign in to Donish',
-              style: GoogleFonts.inter(
+              'Sign in to ${AppBranding.displayName}',
+              style: AppBranding.wordmark(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF1B2559),
@@ -198,18 +177,20 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 4),
             Text(
               'Use the ID and password you got from our Telegram bot.',
-              style: GoogleFonts.inter(
+              style: AppBranding.wordmark(
                 fontSize: 13,
                 color: const Color(0xFF6B7280),
+                fontWeight: FontWeight.w400,
               ),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
-                style: GoogleFonts.inter(
+                style: AppBranding.wordmark(
                   fontSize: 13,
                   color: Colors.red.shade700,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
@@ -267,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Ink(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF4C6FFF), Color(0xFF8E54E9)],
+                      colors: [Color(0xFF8840FE), Color(0xFF9B5FFF)],
                     ),
                     borderRadius: BorderRadius.all(Radius.circular(999)),
                   ),
@@ -311,16 +292,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   Text(
                     'Don’t have an account yet?',
-                    style: GoogleFonts.inter(
+                    style: AppBranding.wordmark(
                       fontSize: 13,
                       color: const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  TextButton(
-                    onPressed: _openTelegramBot,
-                    child: const Text('Open Telegram Bot'),
-                  ),
+                  const SizedBox(height: 10),
+                  _TelegramBotButton(onPressed: _openTelegramBot),
                 ],
               ),
             ),
@@ -339,11 +318,59 @@ class _LoginScreenState extends State<LoginScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: Color(0xFF4C6FFF),
+          color: Color(0xFF8840FE),
           width: 1.5,
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+}
+
+class _TelegramBotButton extends StatelessWidget {
+  const _TelegramBotButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppBranding.primary,
+          backgroundColor: AppBranding.primary.withOpacity(0.08),
+          side: const BorderSide(color: AppBranding.primary, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/telegram.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(
+                AppBranding.primary,
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Open Telegram Bot',
+              style: AppBranding.wordmark(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppBranding.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

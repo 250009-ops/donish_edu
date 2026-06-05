@@ -29,7 +29,7 @@ attachDonishBotHandlers(bot, {
 });
 
 // eslint-disable-next-line no-console
-console.log("Donish Telegram bot is starting (long polling)... (API:", apiBaseUrl, ")");
+console.log("Gotcha Telegram bot is starting (long polling)... (API:", apiBaseUrl, ")");
 // eslint-disable-next-line no-console
 console.log(
   "If the API uses Telegram webhook mode (npm run webhook:set), do not run this process."

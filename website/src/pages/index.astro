@@ -1,0 +1,229 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE } from "../config/site";
+
+const appDescription =
+  "Sign in to Gotcha on Android. Register with our Telegram bot, then use your ID and password in the app.";
+---
+
+<BaseLayout
+  title={`${SITE.name} — English → Uzbek Learning App`}
+  description={appDescription}
+  canonical={SITE.url}
+  appHome={true}
+>
+  <section class="app-hero" aria-labelledby="app-heading">
+    <div class="app-hero__bg" aria-hidden="true"></div>
+    <div class="container app-hero__content">
+      <h1 id="app-heading">{SITE.name}</h1>
+      <p class="app-hero__sub">
+        Learn English from your own PDFs with instant Uzbek translations,
+        flashcards, and quizzes. Use the Android app after registering on
+        Telegram.
+      </p>
+
+      <div class="app-hero__steps">
+        <div class="app-step">
+          <span class="app-step__n">1</span>
+          <p><strong>New here?</strong> Register on Telegram</p>
+        </div>
+        <div class="app-step">
+          <span class="app-step__n">2</span>
+          <p><strong>Have an account?</strong> Open the Android app and sign in</p>
+        </div>
+      </div>
+
+      <div class="app-hero__cta">
+        <a
+          class="btn btn--primary"
+          href={SITE.telegramUrl}
+          rel="noopener noreferrer"
+        >
+          Open Telegram Bot
+        </a>
+        <a class="btn btn--ghost-light" href="/home">Learn more</a>
+      </div>
+
+      <p class="app-hero__note">
+        Android app · Sign in with ID &amp; password from our Telegram bot
+      </p>
+    </div>
+  </section>
+
+  <section class="app-cards section--white">
+    <div class="container app-cards__grid">
+      <article class="app-card">
+        <h2>Get the app</h2>
+        <p>
+          Install Gotcha on your Android device. After registering via Telegram,
+          use your numeric ID and password on the login screen.
+        </p>
+        <p class="app-card__hint">Google Play listing coming soon.</p>
+      </article>
+      <article class="app-card">
+        <h2>Already registered?</h2>
+        <p>
+          Open the Gotcha app on your phone and enter the credentials you
+          received from our bot. Your materials and vocabulary sync to your
+          account.
+        </p>
+      </article>
+      <article class="app-card">
+        <h2>Business &amp; pricing</h2>
+        <p>
+          Product details, pricing, and FAQs for partners and payment
+          verification.
+        </p>
+        <a class="app-card__link" href="/home">View product page →</a>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .app-hero {
+    position: relative;
+    min-height: calc(100vh - var(--nav-height) - 120px);
+    display: flex;
+    align-items: center;
+    padding: clamp(3rem, 8vw, 5rem) 0;
+    text-align: center;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  .app-hero__bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      145deg,
+      #8840fe 0%,
+      #9b5fff 45%,
+      #b98cff 70%,
+      #e8d9ff 100%
+    );
+  }
+
+  .app-hero__content {
+    position: relative;
+    z-index: 1;
+    max-width: 32rem;
+    margin-inline: auto;
+  }
+
+  .app-hero h1 {
+    color: #fff;
+    font-size: clamp(2.75rem, 7vw, 4rem);
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .app-hero__sub {
+    font-size: 1rem;
+    line-height: 1.6;
+    opacity: 0.92;
+    margin-bottom: 1.75rem;
+  }
+
+  .app-hero__steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+
+  .app-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
+    padding: 0.875rem 1rem;
+    backdrop-filter: blur(8px);
+  }
+
+  .app-step__n {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-step p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .app-hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .app-hero__note {
+    font-size: 0.8125rem;
+    opacity: 0.88;
+    margin: 0;
+  }
+
+  .app-cards {
+    padding: 3rem 0 4rem;
+  }
+
+  .app-cards__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+
+  .app-card {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .app-card h2 {
+    font-size: 1.0625rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .app-card p {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--color-muted);
+    line-height: 1.55;
+  }
+
+  .app-card__hint {
+    margin-top: 0.75rem !important;
+    font-size: 0.8125rem !important;
+    font-style: italic;
+  }
+
+  .app-card__link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  @media (max-width: 768px) {
+    .app-cards__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Persistent top bar: logo + "Donish" + profile icon.
+import '../core/config/app_branding.dart';
+
+/// Persistent top bar: Gotcha wordmark + profile icon.
 /// Tapping profile shows a pop-up card (user name + Log out) with transition.
 class DonishTopBar extends StatefulWidget {
   const DonishTopBar({
@@ -21,7 +23,6 @@ class DonishTopBar extends StatefulWidget {
 }
 
 class _DonishTopBarState extends State<DonishTopBar> {
-  static const String _logoAsset = 'assets/images/logo.png';
   final GlobalKey _profileKey = GlobalKey();
 
   void _onProfileTap() {
@@ -65,19 +66,16 @@ class _DonishTopBarState extends State<DonishTopBar> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF4C6FFF), Color(0xFF5B7CFE)],
+          colors: [AppBranding.primary, AppBranding.primaryLight],
         ),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
       ),
       child: Row(
         children: [
-          _buildLogo(context),
-          const SizedBox(width: 10),
           Text(
-            'Donish',
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+            AppBranding.displayName,
+            style: AppBranding.wordmark(
+              fontSize: 22,
               color: Colors.white,
             ),
           ),
@@ -93,21 +91,6 @@ class _DonishTopBarState extends State<DonishTopBar> {
     );
   }
 
-  Widget _buildLogo(BuildContext context) {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: Image.asset(
-        _logoAsset,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const Icon(
-          Icons.school_rounded,
-          color: Colors.white,
-          size: 24,
-        ),
-      ),
-    );
-  }
 }
 
 const double _kProfileCardWidth = 240;

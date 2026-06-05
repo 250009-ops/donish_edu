@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Backend API for Donish English→Uzbek learning app (auth, materials, vocab, translation).",
+  "description": "Backend API for Gotcha English→Uzbek learning app (auth, materials, vocab, translation).",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
@@ -12,10 +12,16 @@
     "secrets": "node scripts/generate-env-secrets.mjs",
     "webhook:set": "node scripts/set-telegram-webhook.mjs",
     "webhook:info": "node scripts/set-telegram-webhook.mjs --info",
-    "env:audit": "node scripts/audit-env.mjs"
+    "webhook:fix": "node scripts/fix-telegram-webhook.mjs",
+    "env:audit": "node scripts/audit-env.mjs",
+    "db:export-supabase": "node scripts/export-supabase.mjs",
+    "db:import": "node scripts/import-postgres.mjs",
+    "deploy:website": "node scripts/vps-sync-website.mjs",
+    "finish:dns": "node scripts/vps-finish-dns.mjs",
+    "deploy:vps": "node scripts/vps-deploy.mjs",
+    "go-live": "node scripts/vps-go-live.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.48.0",
     "axios": "^1.7.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -25,11 +31,13 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "@aws-sdk/client-s3": "^3.750.0",
-    "@aws-sdk/client-textract": "^3.750.0",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.21.0",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "@supabase/supabase-js": "^2.48.0",
+    "nodemon": "^3.1.0",
+    "ssh2": "^1.17.0"
   }
 }

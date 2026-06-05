@@ -1,0 +1,47 @@
+---
+import LegalLayout from "../layouts/LegalLayout.astro";
+import { SITE } from "../config/site";
+---
+
+<LegalLayout
+  title="Terms of Service"
+  description={`Terms governing use of the ${SITE.name} English-to-Uzbek learning application and website.`}
+>
+  <p>By using {SITE.name}, you agree to these terms.</p>
+
+  <h2>Service</h2>
+  <p>
+    {SITE.name} provides digital language-learning tools including PDF upload, vocabulary extraction,
+    Uzbek translations, flashcards, and quizzes. The service is provided "as is" and may change over time.
+  </p>
+
+  <h2>Accounts</h2>
+  <p>
+    You register via our Telegram bot and are responsible for keeping your credentials secure.
+    You must provide accurate information and not share accounts without permission.
+  </p>
+
+  <h2>Acceptable use</h2>
+  <ul>
+    <li>Upload only content you have the right to use for personal learning.</li>
+    <li>Do not upload illegal, harmful, or copyrighted material without authorization.</li>
+    <li>Do not attempt to disrupt, scrape, or reverse-engineer the service.</li>
+  </ul>
+
+  <h2>Subscriptions</h2>
+  <p>
+    Premium plans are billed through Lemon Squeezy. Prices and features are shown at checkout.
+    Refunds are described in our <a href="/refund">Refund Policy</a>.
+  </p>
+
+  <h2>Limitation of liability</h2>
+  <p>
+    To the maximum extent permitted by law, {SITE.name} is not liable for indirect damages or
+    learning outcomes. Translation and OCR may contain errors; verify important content independently.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
+  </p>
+</LegalLayout>

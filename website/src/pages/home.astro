@@ -1,0 +1,734 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE, FAQ_ITEMS } from "../config/site";
+
+const features = [
+  {
+    title: "Upload PDF materials",
+    description:
+      "Add English textbooks, articles, and study PDFs. Gotcha extracts readable text from digital files and scanned pages with server-side OCR.",
+    icon: "upload"
+  },
+  {
+    title: "Tap-to-translate vocabulary",
+    description:
+      "Save words from your reading with context sentences and Uzbek translations. Build a personal lexicon as you read.",
+    icon: "translate"
+  },
+  {
+    title: "Flashcards",
+    description:
+      "Review saved words with spaced-repetition-style flashcards. Mark words as mastered when you know them.",
+    icon: "cards"
+  },
+  {
+    title: "Quizzes",
+    description:
+      "Test yourself with multiple-choice quizzes generated from your vocabulary. Track progress over time.",
+    icon: "quiz"
+  }
+];
+
+const steps = [
+  {
+    n: 1,
+    title: "Register on Telegram",
+    text: "Open our Telegram bot and register with /start."
+  },
+  {
+    n: 2,
+    title: "Download the app",
+    text: "Install the Gotcha Android app and sign in with your ID and password."
+  },
+  {
+    n: 3,
+    title: "Start learning",
+    text: "Upload a PDF, save words while you read, and practice daily."
+  }
+];
+
+const trust = [
+  { label: "PDF-powered learning", color: "#8840FE" },
+  { label: "Instant Uzbek translations", color: "#9B5FFF" },
+  { label: "Flashcards & quizzes", color: "#F59E0B" }
+];
+---
+
+<BaseLayout
+  title={`${SITE.name} — ${SITE.tagline} | English Learning for Uzbek Speakers`}
+  description={SITE.description}
+  canonical={SITE.marketingUrl}
+>
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="hero__bg" aria-hidden="true"></div>
+    <div class="container hero__content">
+      <p class="hero__eyebrow">English → Uzbek learning platform</p>
+      <h1 id="hero-heading">{SITE.tagline}</h1>
+      <p class="hero__sub">
+        Upload English PDFs, save vocabulary with instant Uzbek translations, and
+        practice with flashcards and quizzes — built for Uzbek learners.
+      </p>
+      <div class="hero__cta">
+        <a
+          class="btn btn--primary"
+          href={SITE.telegramUrl}
+          rel="noopener noreferrer"
+        >
+          Start free on Telegram
+        </a>
+        <a class="btn btn--ghost-light" href="#how-it-works">See how it works</a>
+      </div>
+      <p class="hero__note">
+        Secure sign-in powered by Telegram · Android app available
+      </p>
+    </div>
+  </section>
+
+  <section class="trust" aria-label="Key benefits">
+    <div class="container trust__row">
+      {
+        trust.map((item) => (
+          <div class="trust__item">
+            <span class="trust__dot" style={`background:${item.color}`} />
+            <span>{item.label}</span>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section section--white" id="features" aria-labelledby="features-heading">
+    <div class="container">
+      <header class="section__header">
+        <h2 id="features-heading">Everything you need to learn from real materials</h2>
+        <p class="section__lead">
+          Upload your own English PDFs and build vocabulary from the content you
+          care about — with Uzbek support at every step.
+        </p>
+      </header>
+      <div class="features">
+        {
+          features.map((f) => (
+            <article class="feature-card">
+              <div class={`feature-card__icon feature-card__icon--${f.icon}`} aria-hidden="true" />
+              <h3>{f.title}</h3>
+              <p>{f.description}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--muted" id="how-it-works" aria-labelledby="how-heading">
+    <div class="container">
+      <header class="section__header">
+        <h2 id="how-heading">How it works</h2>
+        <p class="section__lead">Get started in three simple steps</p>
+      </header>
+      <ol class="steps">
+        {
+          steps.map((s) => (
+            <li class="step">
+              <span class="step__num">{s.n}</span>
+              <h3>{s.title}</h3>
+              <p>{s.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="steps__tagline">
+        Learn from the materials you already use — not generic lessons.
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--white" id="pricing" aria-labelledby="pricing-heading">
+    <div class="container">
+      <header class="section__header">
+        <h2 id="pricing-heading">Simple, transparent pricing</h2>
+        <p class="section__lead">Start free, upgrade when you're ready</p>
+      </header>
+      <div class="pricing">
+        <article class="pricing-card">
+          <h3>Free</h3>
+          <p class="pricing-card__sub">Perfect for getting started</p>
+          <p class="pricing-card__price">
+            <span class="pricing-card__amount">$0</span>
+            <span class="pricing-card__period">/ forever</span>
+          </p>
+          <ul>
+            <li>Upload limited materials</li>
+            <li>Core vocabulary tools</li>
+            <li>Flashcards &amp; quizzes</li>
+          </ul>
+          <a
+            class="btn btn--outline pricing-card__btn"
+            href={SITE.telegramUrl}
+            rel="noopener noreferrer"
+          >
+            Get started free
+          </a>
+        </article>
+        <article class="pricing-card pricing-card--premium">
+          <span class="pricing-card__badge">Most popular</span>
+          <h3>Premium</h3>
+          <p class="pricing-card__sub">For serious learners</p>
+          <p class="pricing-card__price">
+            <span class="pricing-card__amount">$9.99</span>
+            <span class="pricing-card__period">/ month</span>
+          </p>
+          <ul>
+            <li>Unlimited PDF uploads</li>
+            <li>Priority processing</li>
+            <li>Advanced practice features</li>
+            <li>Priority support</li>
+          </ul>
+          <a
+            class="btn btn--white pricing-card__btn"
+            href={SITE.telegramUrl}
+            rel="noopener noreferrer"
+          >
+            Upgrade to Premium
+          </a>
+          <p class="pricing-card__note">Payments securely processed by Lemon Squeezy</p>
+          <p class="pricing-card__legal">
+            <a href="/terms">Terms of Service</a>
+            <span aria-hidden="true"> · </span>
+            <a href="/privacy">Privacy Policy</a>
+            <span aria-hidden="true"> · </span>
+            <a href="/refund">Refund Policy</a>
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--muted" id="contact" aria-labelledby="contact-heading">
+    <div class="container contact">
+      <header class="section__header">
+        <h2 id="contact-heading">Contact &amp; support</h2>
+        <p class="section__lead">
+          Questions about Gotcha, billing, or your account? We are here to help.
+        </p>
+      </header>
+      <div class="contact__grid">
+        <article class="contact__card">
+          <h3>Email</h3>
+          <p>
+            <a href={`mailto:${SITE.supportEmail}`}>{SITE.supportEmail}</a>
+          </p>
+          <p class="contact__hint">Typical response within 1–2 business days.</p>
+        </article>
+        <article class="contact__card">
+          <h3>Telegram</h3>
+          <p>
+            <a href={SITE.telegramUrl} rel="noopener noreferrer">Message our bot</a>
+          </p>
+          <p class="contact__hint">Registration, sign-in help, and quick support.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--white" id="faq" aria-labelledby="faq-heading">
+    <div class="container container--narrow">
+      <header class="section__header">
+        <h2 id="faq-heading">Frequently asked questions</h2>
+      </header>
+      <div class="faq">
+        {
+          FAQ_ITEMS.map((item, i) => (
+            <details class="faq__item" open={i === 0}>
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" aria-labelledby="cta-heading">
+    <div class="cta__bg" aria-hidden="true"></div>
+    <div class="container cta__content">
+      <h2 id="cta-heading">Start learning from your own materials today</h2>
+      <p>Free to start. Upgrade when you're ready.</p>
+      <a
+        class="btn btn--white"
+        href={SITE.telegramUrl}
+        rel="noopener noreferrer"
+      >
+        Open Telegram Bot
+      </a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero {
+    position: relative;
+    padding: clamp(5rem, 12vw, 7rem) 0 clamp(4rem, 8vw, 5rem);
+    overflow: hidden;
+    color: #fff;
+    text-align: center;
+  }
+
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      #8840fe 0%,
+      #7a3fe0 35%,
+      #9b5fff 55%,
+      #c9a8ff 75%,
+      #e8d9ff 100%
+    );
+  }
+
+  .hero__bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      rgba(255, 255, 255, 0.08),
+      transparent 70%
+    );
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 1;
+    max-width: 42rem;
+  }
+
+  .hero__eyebrow {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.92;
+  }
+
+  .hero h1 {
+    color: #fff;
+    margin-bottom: 1.25rem;
+  }
+
+  .hero__sub {
+    font-size: clamp(1rem, 2.2vw, 1.125rem);
+    line-height: 1.65;
+    opacity: 0.95;
+    margin-bottom: 2rem;
+  }
+
+  .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero__note {
+    font-size: 0.8125rem;
+    opacity: 0.88;
+    margin: 0;
+  }
+
+  .trust {
+    background: #fff;
+    padding: 1.75rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .trust__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2rem 3rem;
+  }
+
+  .trust__item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    font-size: 0.9375rem;
+  }
+
+  .trust__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.75rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .feature-card h3 {
+    margin-top: 1rem;
+  }
+
+  .feature-card p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+
+  .feature-card__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    background: rgba(76, 111, 255, 0.12);
+    position: relative;
+  }
+
+  .feature-card__icon::before {
+    content: "";
+    position: absolute;
+    inset: 12px;
+    background: var(--color-primary);
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+  }
+
+  .feature-card__icon--upload::before {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 16l-4-4h3V4h2v8h3l-4 4zm-7 4h14v2H5v-2z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 16l-4-4h3V4h2v8h3l-4 4zm-7 4h14v2H5v-2z'/%3E%3C/svg%3E");
+  }
+
+  .feature-card__icon--translate::before {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z'/%3E%3C/svg%3E");
+  }
+
+  .feature-card__icon--cards::before {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z'/%3E%3C/svg%3E");
+  }
+
+  .feature-card__icon--quiz::before {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z'/%3E%3C/svg%3E");
+  }
+
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    counter-reset: none;
+  }
+
+  .step {
+    text-align: center;
+  }
+
+  .step__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+
+  .step p {
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+
+  .steps__tagline {
+    text-align: center;
+    font-style: italic;
+    color: var(--color-muted);
+    margin: 2.5rem 0 0;
+    font-size: 1rem;
+  }
+
+  .pricing {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    max-width: 52rem;
+    margin-inline: auto;
+  }
+
+  .pricing-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pricing-card--premium {
+    background: linear-gradient(160deg, #8840fe 0%, #9b5fff 100%);
+    border: none;
+    color: #fff;
+  }
+
+  .pricing-card--premium h3,
+  .pricing-card--premium .pricing-card__sub {
+    color: #fff;
+  }
+
+  .pricing-card--premium .pricing-card__sub {
+    opacity: 0.9;
+  }
+
+  .pricing-card--premium ul {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .pricing-card__badge {
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  .pricing-card__sub {
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    margin-bottom: 1rem;
+  }
+
+  .pricing-card__price {
+    margin-bottom: 1.5rem;
+  }
+
+  .pricing-card__amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: inherit;
+  }
+
+  .pricing-card__period {
+    font-size: 1rem;
+    opacity: 0.75;
+  }
+
+  .pricing-card ul {
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    font-size: 0.9375rem;
+  }
+
+  .pricing-card ul li::before {
+    content: "✓ ";
+    font-weight: 700;
+    color: #22c55e;
+  }
+
+  .pricing-card--premium ul li::before {
+    color: #fff;
+  }
+
+  .pricing-card__btn {
+    width: 100%;
+  }
+
+  .pricing-card__note {
+    margin: 1rem 0 0;
+    font-size: 0.75rem;
+    text-align: center;
+    opacity: 0.8;
+  }
+
+  .pricing-card__legal {
+    margin: 0.75rem 0 0;
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--color-muted);
+  }
+
+  .pricing-card__legal a {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .pricing-card__legal a:hover {
+    text-decoration: underline;
+  }
+
+  .contact__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    max-width: 42rem;
+    margin-inline: auto;
+  }
+
+  .contact__card {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-card);
+    text-align: center;
+  }
+
+  .contact__card h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+  }
+
+  .contact__card a {
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .contact__hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+  }
+
+  .container--narrow {
+    max-width: 40rem;
+  }
+
+  .faq__item {
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+
+  .faq__item summary {
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .faq__item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq__item summary::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    transform: rotate(45deg);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .faq__item[open] summary::after {
+    transform: rotate(-135deg);
+  }
+
+  .faq__item p {
+    margin: 0;
+    padding: 0 1.5rem 1.25rem;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1rem;
+  }
+
+  .cta {
+    position: relative;
+    padding: clamp(4rem, 10vw, 6rem) 0;
+    text-align: center;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  .cta__bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      #8840fe 0%,
+      #7a3fe0 40%,
+      #9b5fff 60%,
+      #e8d9ff 100%
+    );
+  }
+
+  .cta__content {
+    position: relative;
+    z-index: 1;
+    max-width: 36rem;
+  }
+
+  .cta h2 {
+    color: #fff;
+    margin-bottom: 0.75rem;
+  }
+
+  .cta p {
+    opacity: 0.92;
+    margin-bottom: 1.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .contact__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .features,
+    .steps,
+    .pricing {
+      grid-template-columns: 1fr;
+    }
+
+  }
+</style>

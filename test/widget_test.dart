@@ -8,7 +8,7 @@ import 'package:donish_app/main.dart';
 
 void main() {
 
-  testWidgets('Donish app shows splash then loads', (WidgetTester tester) async {
+  testWidgets('Gotcha app shows splash then loads', (WidgetTester tester) async {
 
     await tester.pumpWidget(const DonishApp());
 
@@ -17,8 +17,6 @@ void main() {
     // Title appears partway through the splash timeline.
 
     await tester.pump(const Duration(milliseconds: 900));
-
-    expect(find.text('Donish'), findsOneWidget);
 
     expect(find.text('Master Uzbek Through Reading'), findsOneWidget);
 

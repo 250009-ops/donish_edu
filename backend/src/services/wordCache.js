@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../supabaseClient.js";
+import { query } from "../db/pool.js";
 
 export const RETENTION_DAYS = 90;
 
@@ -25,41 +25,38 @@ export async function pruneOlderThanRetention(userId) {
   const cutoff = retentionCutoffLocalDate();
   const cutoffIso = new Date(`${cutoff}T00:00:00.000Z`).toISOString();
 
-  const { error: byDate } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .delete()
-    .eq("user_id", userId)
-    .lt("local_date", cutoff);
-
-  if (byDate) return byDate;
-
-  const { error: legacy } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .delete()
-    .eq("user_id", userId)
-    .is("local_date", null)
-    .lt("created_at", cutoffIso);
-
-  if (legacy) return legacy;
-
-  const { error: lexErr } = await supabaseAdmin
-    .from("user_word_cache")
-    .delete()
-    .eq("user_id", userId)
-    .lt("updated_at", cutoffIso);
-
-  return lexErr;
+  try {
+    await query(
+      `delete from vocabulary_entries
+       where user_id = $1::uuid and local_date < $2::date`,
+      [userId, cutoff]
+    );
+    await query(
+      `delete from vocabulary_entries
+       where user_id = $1::uuid and local_date is null and created_at < $2::timestamptz`,
+      [userId, cutoffIso]
+    );
+    await query(
+      `delete from user_word_cache
+       where user_id = $1::uuid and updated_at < $2::timestamptz`,
+      [userId, cutoffIso]
+    );
+    return null;
+  } catch (err) {
+    return err;
+  }
 }
 
 export async function getUserWordCache(userId, word) {
-  const { data, error } = await supabaseAdmin
-    .from("user_word_cache")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("word", word)
-    .maybeSingle();
-  if (error) return { error, row: null };
-  return { error: null, row: data };
+  try {
+    const { rows } = await query(
+      `select * from user_word_cache where user_id = $1::uuid and word = $2`,
+      [userId, word]
+    );
+    return { error: null, row: rows[0] || null };
+  } catch (error) {
+    return { error, row: null };
+  }
 }
 
 export async function upsertUserWordCache(userId, {
@@ -68,37 +65,53 @@ export async function upsertUserWordCache(userId, {
   translationContextUz,
   savedForPractice
 }) {
-  const payload = {
-    user_id: userId,
-    word,
-    translation_base_uz: translationBaseUz,
-    translation_context_uz: translationContextUz || null,
-    updated_at: new Date().toISOString()
-  };
-  if (typeof savedForPractice === "boolean") {
-    payload.saved_for_practice = savedForPractice;
+  try {
+    const saveFlag =
+      typeof savedForPractice === "boolean" ? savedForPractice : false;
+    const { rows } = await query(
+      `insert into user_word_cache (
+         user_id, word, translation_base_uz, translation_context_uz,
+         saved_for_practice, updated_at
+       ) values ($1::uuid, $2, $3, $4, $5, now())
+       on conflict (user_id, word) do update set
+         translation_base_uz = excluded.translation_base_uz,
+         translation_context_uz = excluded.translation_context_uz,
+         saved_for_practice = case
+           when $6::boolean then excluded.saved_for_practice
+           else user_word_cache.saved_for_practice
+         end,
+         updated_at = now()
+       returning *`,
+      [
+        userId,
+        word,
+        translationBaseUz,
+        translationContextUz || null,
+        saveFlag,
+        typeof savedForPractice === "boolean"
+      ]
+    );
+    return { error: null, row: rows[0] };
+  } catch (error) {
+    return { error, row: null };
   }
-
-  const { data, error } = await supabaseAdmin
-    .from("user_word_cache")
-    .upsert(payload, { onConflict: "user_id,word" })
-    .select("*")
-    .single();
-
-  return { error, row: data };
 }
 
 export async function listUserLexicon(userId) {
   const cutoff = retentionCutoffLocalDate();
-  const { data, error } = await supabaseAdmin
-    .from("user_word_cache")
-    .select("word, translation_base_uz, saved_for_practice, updated_at")
-    .eq("user_id", userId)
-    .gte("updated_at", new Date(`${cutoff}T00:00:00.000Z`).toISOString())
-    .order("word", { ascending: true });
-
-  if (error) return { error, rows: [] };
-  return { error: null, rows: data || [] };
+  const cutoffIso = new Date(`${cutoff}T00:00:00.000Z`).toISOString();
+  try {
+    const { rows } = await query(
+      `select word, translation_base_uz, saved_for_practice, updated_at
+       from user_word_cache
+       where user_id = $1::uuid and updated_at >= $2::timestamptz
+       order by word asc`,
+      [userId, cutoffIso]
+    );
+    return { error: null, rows };
+  } catch (error) {
+    return { error, rows: [] };
+  }
 }
 
 export async function recordTapForLocalDate(
@@ -112,85 +125,88 @@ export async function recordTapForLocalDate(
     savedForPractice
   }
 ) {
-  const { data: existing, error: findErr } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("id, saved_for_practice")
-    .eq("user_id", userId)
-    .eq("word", word)
-    .eq("local_date", localDate)
-    .limit(1);
+  try {
+    const { rows: existing } = await query(
+      `select id, saved_for_practice from vocabulary_entries
+       where user_id = $1::uuid and word = $2 and local_date = $3::date
+       limit 1`,
+      [userId, word, localDate]
+    );
 
-  if (findErr) return { error: findErr, entry: null };
+    const row = existing[0];
+    const keepSaved =
+      savedForPractice === true || row?.saved_for_practice === true;
 
-  const row = existing?.[0];
-  const keepSaved =
-    savedForPractice === true || row?.saved_for_practice === true;
+    if (row) {
+      const { rows } = await query(
+        `update vocabulary_entries set
+           translation_uz = $2,
+           translation_base_uz = $2,
+           context_sentence = $3,
+           material_id = $4::uuid,
+           saved_for_practice = $5
+         where id = $1::uuid
+         returning *`,
+        [
+          row.id,
+          translationBaseUz,
+          contextSentence || "",
+          materialId || null,
+          keepSaved
+        ]
+      );
+      return { error: null, entry: rows[0] };
+    }
 
-  if (row) {
-    const { data, error } = await supabaseAdmin
-      .from("vocabulary_entries")
-      .update({
-        translation_uz: translationBaseUz,
-        translation_base_uz: translationBaseUz,
-        context_sentence: contextSentence || "",
-        material_id: materialId || null,
-        saved_for_practice: keepSaved
-      })
-      .eq("id", row.id)
-      .select("*")
-      .single();
-    return { error, entry: data };
+    const { rows } = await query(
+      `insert into vocabulary_entries (
+         user_id, word, local_date, translation_uz, translation_base_uz,
+         context_sentence, material_id, saved_for_practice
+       ) values ($1::uuid, $2, $3::date, $4, $4, $5, $6::uuid, $7)
+       returning *`,
+      [
+        userId,
+        word,
+        localDate,
+        translationBaseUz,
+        contextSentence || "",
+        materialId || null,
+        savedForPractice === true
+      ]
+    );
+    return { error: null, entry: rows[0] };
+  } catch (error) {
+    return { error, entry: null };
   }
-
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .insert({
-      user_id: userId,
-      word,
-      local_date: localDate,
-      translation_uz: translationBaseUz,
-      translation_base_uz: translationBaseUz,
-      context_sentence: contextSentence || "",
-      material_id: materialId || null,
-      saved_for_practice: keepSaved === true
-    })
-    .select("*")
-    .single();
-
-  return { error, entry: data };
 }
 
 export async function listDistinctLocalDates(userId) {
   const cutoff = retentionCutoffLocalDate();
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("local_date")
-    .eq("user_id", userId)
-    .gte("local_date", cutoff)
-    .not("local_date", "is", null)
-    .order("local_date", { ascending: false });
-
-  if (error) return { error, dates: [] };
-
-  const seen = new Set();
-  const dates = [];
-  for (const row of data || []) {
-    const d = row.local_date;
-    if (!d || seen.has(d)) continue;
-    seen.add(d);
-    dates.push(d);
+  try {
+    const { rows } = await query(
+      `select distinct local_date
+       from vocabulary_entries
+       where user_id = $1::uuid and local_date is not null and local_date >= $2::date
+       order by local_date desc`,
+      [userId, cutoff]
+    );
+    const dates = rows.map((r) => r.local_date).filter(Boolean);
+    return { error: null, dates };
+  } catch (error) {
+    return { error, dates: [] };
   }
-  return { error: null, dates };
 }
 
 export async function listEntriesForLocalDate(userId, localDate) {
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("local_date", localDate)
-    .order("created_at", { ascending: false });
-
-  if (error) return { error, entries: [] };
-  return { error: null, entries: data || [] };
+  try {
+    const { rows } = await query(
+      `select * from vocabulary_entries
+       where user_id = $1::uuid and local_date = $2::date
+       order by created_at desc`,
+      [userId, localDate]
+    );
+    return { error: null, entries: rows };
+  } catch (error) {
+    return { error, entries: [] };
+  }
 }

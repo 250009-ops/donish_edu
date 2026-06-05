@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
 
-/// Explains PDF upload limits and Textract-based extraction.
+/// Explains PDF upload limits and server-side PDF extraction.
 void showPdfMaterialsHelpDialog(BuildContext context) {
   showDialog<void>(
     context: context,
@@ -14,7 +14,7 @@ void showPdfMaterialsHelpDialog(BuildContext context) {
       ),
       content: SingleChildScrollView(
         child: Text(
-          'Donish reads your PDF using Amazon Textract (OCR). It works for digital PDFs and scanned pages.\n\n'
+          'Gotcha reads your PDF on our server (text extraction + OCR for scans). It works for digital PDFs and scanned pages.\n\n'
           'Works well:\n'
           '• PDFs from Word, Google Docs, or websites.\n'
           '• Scans and photos saved as PDF (clear text helps).\n\n'

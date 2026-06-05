@@ -1,0 +1,122 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { SITE, FAQ_ITEMS } from "../config/site";
+
+interface Props {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  /** App home (/) uses a minimal chrome; marketing lives at /home */
+  appHome?: boolean;
+}
+
+const {
+  title = `${SITE.name} — ${SITE.tagline}`,
+  description = SITE.description,
+  canonical = new URL(Astro.url.pathname, SITE.url).href,
+  ogImage = `${SITE.url}/og-image.svg`,
+  noindex = false,
+  appHome = false
+} = Astro.props;
+
+const isMarketingPage = Astro.url.pathname.startsWith("/home");
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer
+    }
+  }))
+};
+
+const orgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE.name,
+  url: SITE.url,
+  logo: `${SITE.url}/gotcha-logo.png`,
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: SITE.supportEmail,
+    contactType: "customer support"
+  },
+  sameAs: [SITE.telegramUrl]
+};
+
+const appJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: SITE.name,
+  applicationCategory: "EducationalApplication",
+  operatingSystem: "Android",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD"
+  },
+  description: SITE.description,
+  url: SITE.url
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="application-name" content={SITE.name} />
+    <meta name="apple-mobile-web-app-title" content={SITE.name} />
+    <meta name="description" content={description} />
+    <meta
+      name="keywords"
+      content="Gotcha, English Uzbek, learn English, PDF vocabulary, flashcards, Uzbek learners, language learning app"
+    />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" href="/gotcha-logo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/gotcha-logo.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="theme-color" content="#8840FE" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap"
+      rel="stylesheet"
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(orgJsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(appJsonLd)} />
+    {
+      isMarketingPage && (
+        <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd)} />
+      )
+    }
+    <slot name="head" />
+  </head>
+  <body>
+    <Header appHome={appHome} />
+    <main id="main">
+      <slot />
+    </main>
+    {appHome ? <Footer minimal /> : <Footer />}
+  </body>
+</html>

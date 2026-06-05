@@ -1,5 +1,5 @@
 name: donish_app
-description: Donish English->Uzbek learning app built with Flutter.
+description: Gotcha English->Uzbek learning app built with Flutter.
 publish_to: "none"
 version: 1.0.0+1
 
@@ -30,4 +30,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/icons/
 

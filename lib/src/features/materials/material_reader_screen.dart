@@ -12,7 +12,7 @@ import 'reader_coach_store.dart';
 
 const Color _kTextPrimary = Color(0xFF111827);
 const Color _kTextSecondary = Color(0xFF6B7280);
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 const Color _kTappedFill = Color(0xFFEDE9FE);
 
 List<String> paragraphsFromExtractedText(String content) {

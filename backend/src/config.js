@@ -6,15 +6,10 @@ export const config = {
   port: process.env.PORT || 4000,
   jwtSecret: process.env.JWT_SECRET || "CHANGE_ME_IN_PRODUCTION",
   jwtExpiresIn: "7d",
-  supabaseUrl: process.env.SUPABASE_URL || "",
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  databaseUrl: process.env.DATABASE_URL || "",
   openAiApiKey: process.env.OPENAI_API_KEY || "",
   /** When set, Telegram bot must send `X-Bot-Secret` for /bot/create-user. */
-  botSharedSecret: process.env.BOT_SHARED_SECRET || "",
-  /** AWS region for Textract + S3 (e.g. us-east-1). */
-  awsRegion: process.env.AWS_REGION || "",
-  /** Private bucket for temporary PDF uploads before Textract async jobs. */
-  textractS3Bucket: process.env.TEXTRACT_S3_BUCKET || ""
+  botSharedSecret: process.env.BOT_SHARED_SECRET || ""
 };
 
 /**
@@ -39,17 +34,10 @@ export function validateDeploymentConfig() {
     );
   }
 
-  const region = process.env.AWS_REGION || "";
-  if (!region.trim()) {
+  const db = process.env.DATABASE_URL || "";
+  if (!db.trim()) {
     throw new Error(
-      "Production requires AWS_REGION for Amazon Textract (e.g. us-east-1)."
-    );
-  }
-
-  const bucket = process.env.TEXTRACT_S3_BUCKET || "";
-  if (!bucket.trim()) {
-    throw new Error(
-      "Production requires TEXTRACT_S3_BUCKET (private S3 bucket for temporary PDF uploads)."
+      "Production requires DATABASE_URL (PostgreSQL connection string)."
     );
   }
 }

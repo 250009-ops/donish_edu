@@ -10,7 +10,7 @@ import '../../util/material_file_reader.dart';
 import 'material_pdf_help_dialog.dart';
 import 'material_text_review_screen.dart';
 
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 
 class AddMaterialScreen extends StatefulWidget {
   const AddMaterialScreen({

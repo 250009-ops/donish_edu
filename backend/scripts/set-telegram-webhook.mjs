@@ -60,8 +60,16 @@ async function main() {
     console.log("Using TELEGRAM_WEBHOOK_SECRET (secret_token).");
   }
 
+  const vpsIp = process.env.IP?.trim();
+  if (vpsIp) {
+    console.log(`Using fixed webhook IP: ${vpsIp}`);
+  }
+
+  await telegramApi("deleteWebhook", { drop_pending_updates: "true" });
+
   await telegramApi("setWebhook", {
     url: webhookUrl,
+    ...(vpsIp ? { ip_address: vpsIp } : {}),
     ...(secret ? { secret_token: secret } : {}),
     allowed_updates: JSON.stringify([
       "message",

@@ -1,27 +1,21 @@
 import express from "express";
 import multer from "multer";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { query } from "../db/pool.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import {
   authenticatedApiLimiter,
   extractPreviewLimiter
 } from "../middlewares/rateLimits.js";
 import {
-  extractTextFromPdfWithTextract,
-  TextractJobFailedError,
-  TextractNotConfiguredError,
-  TextractTimeoutError
-} from "../services/textractExtract.js";
+  extractTextFromPdf,
+  PdfExtractFailedError,
+  PdfExtractTimeoutError
+} from "../services/pdfExtract.js";
 
 export const materialsRouter = express.Router();
 
-/** Reject PDFs with more than this many pages (Textract async). */
 const MAX_PDF_PAGES = 30;
-
-/** Max decoded PDF size. Base64 upload needs ~4/3× this in JSON body limit. */
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-
-/** Stored reader text upper bound (characters). */
 const MAX_CONTENT_TEXT_CHARS = 800_000;
 
 const ALLOWED_TYPES = new Set([
@@ -78,10 +72,6 @@ function parseMaterialsListQuery(req) {
   return { limit, offset, materialType, englishLevel, qRaw };
 }
 
-/**
- * @param {Buffer} buffer
- * @returns {Promise<{ ok: true, contentText: string, numPages: number } | { ok: false, status: number, json: object }>}
- */
 async function extractTextFromPdfBuffer(buffer) {
   if (!buffer?.length) {
     return {
@@ -92,28 +82,16 @@ async function extractTextFromPdfBuffer(buffer) {
   }
 
   try {
-    const { contentText, numPages } = await extractTextFromPdfWithTextract(
-      buffer,
-      { maxPages: MAX_PDF_PAGES, maxBytes: MAX_FILE_BYTES }
-    );
+    const { contentText, numPages } = await extractTextFromPdf(buffer, {
+      maxPages: MAX_PDF_PAGES,
+      maxBytes: MAX_FILE_BYTES
+    });
     return { ok: true, contentText, numPages };
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.error("Textract extract error:", e);
+    console.error("PDF extract error:", e);
 
-    if (e instanceof TextractNotConfiguredError) {
-      return {
-        ok: false,
-        status: 503,
-        json: {
-          code: "textract_not_configured",
-          error:
-            "PDF text extraction is temporarily unavailable. Please try again later."
-        }
-      };
-    }
-
-    if (e instanceof TextractTimeoutError) {
+    if (e instanceof PdfExtractTimeoutError) {
       return {
         ok: false,
         status: 504,
@@ -124,7 +102,7 @@ async function extractTextFromPdfBuffer(buffer) {
       };
     }
 
-    if (e instanceof TextractJobFailedError) {
+    if (e instanceof PdfExtractFailedError) {
       return {
         ok: false,
         status: 400,
@@ -139,31 +117,11 @@ async function extractTextFromPdfBuffer(buffer) {
     const msg = e instanceof Error ? e.message : String(e);
 
     if (msg.includes("too large")) {
-      return {
-        ok: false,
-        status: 400,
-        json: { error: msg }
-      };
+      return { ok: false, status: 400, json: { error: msg } };
     }
 
     if (msg.includes("pages. Please upload")) {
-      return {
-        ok: false,
-        status: 400,
-        json: { error: msg }
-      };
-    }
-
-    if (msg.includes("ENOTFOUND") || msg.includes("getaddrinfo")) {
-      return {
-        ok: false,
-        status: 503,
-        json: {
-          code: "textract_not_configured",
-          error:
-            "PDF extraction region is misconfigured. Set AWS_REGION to a Textract region (e.g. eu-west-1) and use an S3 bucket in the same region."
-        }
-      };
+      return { ok: false, status: 400, json: { error: msg } };
     }
 
     if (msg === "NO_EXTRACTABLE_TEXT") {
@@ -212,7 +170,6 @@ function validateMaterialMeta(title, materialType, englishLevel, res) {
   return true;
 }
 
-/** JSON: pdf_base64 — parse only, no DB row. Client edits text then POST /materials with content_text. */
 materialsRouter.post("/extract-preview", extractPreviewLimiter, async (req, res) => {
   const b64 = req.body?.pdf_base64;
   if (typeof b64 !== "string" || !b64.trim()) {
@@ -241,43 +198,42 @@ materialsRouter.get("/", async (req, res) => {
   const { limit, offset, materialType, englishLevel, qRaw } =
     parseMaterialsListQuery(req);
 
-  const fetchSize = limit + 1;
-  const rangeEnd = offset + fetchSize - 1;
-
-  let query = supabaseAdmin
-    .from("materials")
-    .select(
-      "id, title, file_path, page_count, material_type, english_level, created_at"
-    )
-    .eq("user_id", req.user.id);
+  const params = [req.user.id];
+  let sql = `select id, title, file_path, page_count, material_type, english_level, created_at
+             from materials where user_id = $1::uuid`;
+  let n = 2;
 
   if (materialType && ALLOWED_TYPES.has(materialType)) {
-    query = query.eq("material_type", materialType);
+    sql += ` and material_type = $${n}`;
+    params.push(materialType);
+    n += 1;
   }
   if (englishLevel && ALLOWED_LEVELS.has(englishLevel)) {
-    query = query.eq("english_level", englishLevel);
+    sql += ` and english_level = $${n}`;
+    params.push(englishLevel);
+    n += 1;
   }
 
   const safeQ = qRaw.replace(/[%_\\]/g, " ").trim();
   if (safeQ.length > 0) {
-    query = query.ilike("title", `%${safeQ}%`);
+    sql += ` and title ilike $${n}`;
+    params.push(`%${safeQ}%`);
+    n += 1;
   }
 
-  const { data, error } = await query
-    .order("created_at", { ascending: false })
-    .range(offset, rangeEnd);
+  sql += ` order by created_at desc limit $${n} offset $${n + 1}`;
+  params.push(limit + 1, offset);
 
-  if (error) {
+  try {
+    const { rows } = await query(sql, params);
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    return res.json({ items, has_more: hasMore });
+  } catch (error) {
     // eslint-disable-next-line no-console
     console.error("GET /materials error:", error);
     return res.status(500).json({ error: "Failed to load materials." });
   }
-
-  const rows = data || [];
-  const hasMore = rows.length > limit;
-  const items = hasMore ? rows.slice(0, limit) : rows;
-
-  return res.json({ items, has_more: hasMore });
 });
 
 materialsRouter.get("/:id", async (req, res) => {
@@ -286,26 +242,21 @@ materialsRouter.get("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid material id." });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("materials")
-    .select(
-      "id, user_id, title, file_path, page_count, material_type, english_level, content_text, created_at"
-    )
-    .eq("id", id)
-    .eq("user_id", req.user.id)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `select id, user_id, title, file_path, page_count, material_type, english_level, content_text, created_at
+       from materials where id = $1::uuid and user_id = $2::uuid`,
+      [id, req.user.id]
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ error: "Material not found." });
+    }
+    return res.json(rows[0]);
+  } catch (error) {
     // eslint-disable-next-line no-console
     console.error("GET /materials/:id error:", error);
     return res.status(500).json({ error: "Failed to load material." });
   }
-
-  if (!data) {
-    return res.status(404).json({ error: "Material not found." });
-  }
-
-  return res.json(data);
 });
 
 materialsRouter.delete("/:id", async (req, res) => {
@@ -314,35 +265,20 @@ materialsRouter.delete("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid material id." });
   }
 
-  const { data: row, error: findErr } = await supabaseAdmin
-    .from("materials")
-    .select("id")
-    .eq("id", id)
-    .eq("user_id", req.user.id)
-    .maybeSingle();
-
-  if (findErr) {
+  try {
+    const { rowCount } = await query(
+      `delete from materials where id = $1::uuid and user_id = $2::uuid`,
+      [id, req.user.id]
+    );
+    if (!rowCount) {
+      return res.status(404).json({ error: "Material not found." });
+    }
+    return res.status(204).send();
+  } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("DELETE /materials/:id lookup error:", findErr);
-    return res.status(500).json({ error: "Failed to verify material." });
-  }
-  if (!row) {
-    return res.status(404).json({ error: "Material not found." });
-  }
-
-  const { error: delErr } = await supabaseAdmin
-    .from("materials")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", req.user.id);
-
-  if (delErr) {
-    // eslint-disable-next-line no-console
-    console.error("DELETE /materials/:id error:", delErr);
+    console.error("DELETE /materials/:id error:", error);
     return res.status(500).json({ error: "Failed to delete material." });
   }
-
-  return res.status(204).send();
 });
 
 function handleMulter(req, res, next) {
@@ -359,11 +295,6 @@ function handleMulter(req, res, next) {
   });
 }
 
-/**
- * POST /materials
- * - JSON with non-empty content_text: save edited extract (no PDF re-upload).
- * - JSON with pdf_base64 or multipart file: parse PDF and save.
- */
 materialsRouter.post(
   "/",
   (req, res, next) => {
@@ -390,7 +321,6 @@ materialsRouter.post(
     }
 
     const ct = req.headers["content-type"] || "";
-
     const contentTextRaw = req.body?.content_text;
     const trimmedClientText =
       typeof contentTextRaw === "string"
@@ -423,29 +353,28 @@ materialsRouter.post(
           : "document.pdf";
       const safeName = safeFileName(originalName);
 
-      const { data, error } = await supabaseAdmin
-        .from("materials")
-        .insert({
-          user_id: req.user.id,
-          title,
-          file_path: safeName,
-          page_count: pageCount,
-          material_type: materialType,
-          english_level: englishLevel,
-          content_text: trimmedClientText
-        })
-        .select(
-          "id, title, file_path, page_count, material_type, english_level, created_at"
-        )
-        .single();
-
-      if (error) {
+      try {
+        const { rows } = await query(
+          `insert into materials (
+             user_id, title, file_path, page_count, material_type, english_level, content_text
+           ) values ($1::uuid, $2, $3, $4, $5, $6, $7)
+           returning id, title, file_path, page_count, material_type, english_level, created_at`,
+          [
+            req.user.id,
+            title,
+            safeName,
+            pageCount,
+            materialType,
+            englishLevel,
+            trimmedClientText
+          ]
+        );
+        return res.status(201).json(rows[0]);
+      } catch (error) {
         // eslint-disable-next-line no-console
         console.error("POST /materials (content_text) error:", error);
         return res.status(500).json({ error: "Failed to save material." });
       }
-
-      return res.status(201).json(data);
     }
 
     let buffer;
@@ -472,7 +401,7 @@ materialsRouter.post(
       if (!file || !file.buffer?.length) {
         return res.status(400).json({
           error:
-            "PDF file is required. Send multipart/form-data with field \"file\", or application/json with pdf_base64 or content_text."
+            'PDF file is required. Send multipart/form-data with field "file", or application/json with pdf_base64 or content_text.'
         });
       }
       buffer = file.buffer;
@@ -486,28 +415,27 @@ materialsRouter.post(
 
     const safeName = safeFileName(originalName);
 
-    const { data, error } = await supabaseAdmin
-      .from("materials")
-      .insert({
-        user_id: req.user.id,
-        title,
-        file_path: safeName,
-        page_count: result.numPages,
-        material_type: materialType,
-        english_level: englishLevel,
-        content_text: result.contentText
-      })
-      .select(
-        "id, title, file_path, page_count, material_type, english_level, created_at"
-      )
-      .single();
-
-    if (error) {
+    try {
+      const { rows } = await query(
+        `insert into materials (
+           user_id, title, file_path, page_count, material_type, english_level, content_text
+         ) values ($1::uuid, $2, $3, $4, $5, $6, $7)
+         returning id, title, file_path, page_count, material_type, english_level, created_at`,
+        [
+          req.user.id,
+          title,
+          safeName,
+          result.numPages,
+          materialType,
+          englishLevel,
+          result.contentText
+        ]
+      );
+      return res.status(201).json(rows[0]);
+    } catch (error) {
       // eslint-disable-next-line no-console
       console.error("POST /materials error:", error);
       return res.status(500).json({ error: "Failed to save material." });
     }
-
-    return res.status(201).json(data);
   }
 );

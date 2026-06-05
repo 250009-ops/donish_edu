@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/network/api_client.dart';
 import 'material_pdf_help_dialog.dart';
 
-const Color _kViolet = Color(0xFF4C6FFF);
+const Color _kViolet = Color(0xFF8840FE);
 
 /// After extract-preview, user trims text here; final save uses [content_text] only.
 class MaterialTextReviewScreen extends StatefulWidget {

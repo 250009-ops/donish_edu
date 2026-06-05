@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8840FE"/>
+      <stop offset="55%" stop-color="#9B5FFF"/>
+      <stop offset="100%" stop-color="#E8D9FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="600" y="290" fill="#fff" font-family="Varela Round, Arial, sans-serif" font-size="96" font-weight="700" text-anchor="middle">Gotcha</text>
+  <text x="600" y="360" fill="#fff" font-family="Varela Round, Arial, sans-serif" font-size="36" opacity="0.95" text-anchor="middle">Learn English Through Reading</text>
+  <text x="600" y="420" fill="#fff" font-family="Varela Round, Arial, sans-serif" font-size="24" opacity="0.85" text-anchor="middle">English · Uzbek · PDF vocabulary · Flashcards</text>
+</svg>

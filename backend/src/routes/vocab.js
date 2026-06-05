@@ -1,5 +1,5 @@
 import express from "express";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { query } from "../db/pool.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import { authenticatedApiLimiter } from "../middlewares/rateLimits.js";
 import {
@@ -97,29 +97,34 @@ async function enrichEntries(userId, entries) {
   const ids = entries.map((e) => e.id);
   let statsByVocab = {};
   if (ids.length > 0) {
-    const { data: statsRows, error: statsErr } = await supabaseAdmin
-      .from("practice_stats")
-      .select(
-        "vocab_id, success_count, failure_count, ui_progress, flashcard_mastered"
-      )
-      .eq("user_id", userId)
-      .in("vocab_id", ids);
-
-    if (!statsErr && statsRows) {
+    try {
+      const { rows: statsRows } = await query(
+        `select vocab_id, success_count, failure_count, ui_progress, flashcard_mastered
+         from practice_stats
+         where user_id = $1::uuid and vocab_id = any($2::uuid[])`,
+        [userId, ids]
+      );
       statsByVocab = aggregateStatsByVocabId(statsRows);
+    } catch (statsErr) {
+      // eslint-disable-next-line no-console
+      console.error("enrichEntries stats:", statsErr);
     }
   }
 
   const words = [...new Set(entries.map((e) => e.word))];
   let lexiconByWord = {};
   if (words.length > 0) {
-    const { data: lexRows } = await supabaseAdmin
-      .from("user_word_cache")
-      .select("word, saved_for_practice")
-      .eq("user_id", userId)
-      .in("word", words);
-    for (const row of lexRows || []) {
-      lexiconByWord[row.word] = row;
+    try {
+      const { rows: lexRows } = await query(
+        `select word, saved_for_practice from user_word_cache
+         where user_id = $1::uuid and word = any($2::text[])`,
+        [userId, words]
+      );
+      for (const row of lexRows) {
+        lexiconByWord[row.word] = row;
+      }
+    } catch {
+      lexiconByWord = {};
     }
   }
 
@@ -128,8 +133,7 @@ async function enrichEntries(userId, entries) {
     const lex = lexiconByWord[e.word];
     return {
       ...e,
-      translation_uz:
-        e.translation_base_uz || e.translation_uz,
+      translation_uz: e.translation_base_uz || e.translation_uz,
       progress: quizProgressFromAggregated(agg),
       flashcard_mastered: masteredFromAggregated(agg),
       saved_for_practice:
@@ -139,7 +143,6 @@ async function enrichEntries(userId, entries) {
   });
 }
 
-/** Distinct local dates (YYYY-MM-DD) that have tapped words, newest first. */
 vocabRouter.get("/days", async (req, res) => {
   const userId = req.user.id;
   const pruneErr = await pruneOlderThanRetention(userId);
@@ -155,19 +158,22 @@ vocabRouter.get("/days", async (req, res) => {
     return res.status(500).json({ error: "Failed to load vocabulary days." });
   }
 
-  const { data: userRow } = await supabaseAdmin
-    .from("users")
-    .select("created_at")
-    .eq("id", userId)
-    .maybeSingle();
-
-  return res.json({
-    dates,
-    member_since: userRow?.created_at ?? null
-  });
+  try {
+    const { rows } = await query(
+      `select created_at from users where id = $1::uuid`,
+      [userId]
+    );
+    return res.json({
+      dates,
+      member_since: rows[0]?.created_at ?? null
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("GET /vocab/days user:", error);
+    return res.json({ dates, member_since: null });
+  }
 });
 
-/** Full per-user word lexicon for reader highlighting + offline cache sync. */
 vocabRouter.get("/lexicon", async (req, res) => {
   const userId = req.user.id;
   const pruneErr = await pruneOlderThanRetention(userId);
@@ -228,22 +234,22 @@ vocabRouter.get("/", async (req, res) => {
   }
   const { startIso, endIso } = parsed;
 
-  const { data, error } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("*")
-    .eq("user_id", userId)
-    .gte("created_at", startIso)
-    .lt("created_at", endIso)
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `select * from vocabulary_entries
+       where user_id = $1::uuid
+         and created_at >= $2::timestamptz
+         and created_at < $3::timestamptz
+       order by created_at desc`,
+      [userId, startIso, endIso]
+    );
+    const enriched = await enrichEntries(userId, rows);
+    return res.json(enriched);
+  } catch (error) {
     // eslint-disable-next-line no-console
     console.error("GET /vocab error:", error);
     return res.status(500).json({ error: "Failed to load vocabulary entries." });
   }
-
-  const enriched = await enrichEntries(userId, data || []);
-  return res.json(enriched);
 });
 
 vocabRouter.post("/", async (req, res) => {
@@ -300,10 +306,15 @@ vocabRouter.post("/", async (req, res) => {
   }
 
   if (notes) {
-    await supabaseAdmin
-      .from("vocabulary_entries")
-      .update({ notes })
-      .eq("id", entry.id);
+    try {
+      await query(`update vocabulary_entries set notes = $2 where id = $1::uuid`, [
+        entry.id,
+        notes
+      ]);
+    } catch (noteErr) {
+      // eslint-disable-next-line no-console
+      console.error("POST /vocab notes:", noteErr);
+    }
   }
 
   return res.status(201).json({
@@ -335,103 +346,83 @@ vocabRouter.post("/practice", async (req, res) => {
 
   const userId = req.user.id;
 
-  const { data: entry, error: entryErr } = await supabaseAdmin
-    .from("vocabulary_entries")
-    .select("id")
-    .eq("id", vocabId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (entryErr) {
-    // eslint-disable-next-line no-console
-    console.error("POST /vocab/practice entry lookup:", entryErr);
-    return res.status(500).json({ error: "Failed to verify vocabulary entry." });
-  }
-  if (!entry) {
-    return res.status(404).json({ error: "Vocabulary entry not found." });
-  }
-
-  const { data: existingRows, error: findErr } = await supabaseAdmin
-    .from("practice_stats")
-    .select(
-      "id, success_count, failure_count, ui_progress, flashcard_mastered"
-    )
-    .eq("user_id", userId)
-    .eq("vocab_id", vocabId)
-    .limit(1);
-
-  if (findErr) {
-    // eslint-disable-next-line no-console
-    console.error("POST /vocab/practice find stats:", findErr);
-    return res.status(500).json({ error: "Failed to load practice stats." });
-  }
-
-  const existing = existingRows?.[0];
-  const nowIso = new Date().toISOString();
-
-  let nextSc = existing?.success_count ?? 0;
-  let nextFc = existing?.failure_count ?? 0;
-  let nextUi = existing?.ui_progress ?? null;
-  let nextMastered = existing?.flashcard_mastered === true;
-
-  if (action === "quiz_correct" || action === "quiz_incorrect") {
-    const current = displayQuizProgressFromRow(existing);
-    const stepped =
-      action === "quiz_correct"
-        ? clamp01(current + QUIZ_PROGRESS_STEP)
-        : clamp01(current - QUIZ_PROGRESS_STEP);
-    nextUi = stepped;
-  } else if (action === "flashcard_easy") {
-    nextMastered = true;
-  } else if (action === "flashcard_hard") {
-    nextMastered = false;
-  }
-
-  const payload = {
-    success_count: nextSc,
-    failure_count: nextFc,
-    last_seen_at: nowIso,
-    ui_progress: nextUi,
-    flashcard_mastered: nextMastered
-  };
-
-  if (existing) {
-    const { error: upErr } = await supabaseAdmin
-      .from("practice_stats")
-      .update(payload)
-      .eq("id", existing.id);
-
-    if (upErr) {
-      // eslint-disable-next-line no-console
-      console.error("POST /vocab/practice update:", upErr);
-      return res.status(500).json({ error: "Failed to update practice stats." });
+  try {
+    const { rows: entryRows } = await query(
+      `select id from vocabulary_entries
+       where id = $1::uuid and user_id = $2::uuid`,
+      [vocabId, userId]
+    );
+    if (!entryRows[0]) {
+      return res.status(404).json({ error: "Vocabulary entry not found." });
     }
-  } else {
-    const { error: insErr } = await supabaseAdmin.from("practice_stats").insert({
-      user_id: userId,
-      vocab_id: vocabId,
-      ...payload
+
+    const { rows: existingRows } = await query(
+      `select id, success_count, failure_count, ui_progress, flashcard_mastered
+       from practice_stats
+       where user_id = $1::uuid and vocab_id = $2::uuid
+       limit 1`,
+      [userId, vocabId]
+    );
+
+    const existing = existingRows[0];
+    const nowIso = new Date().toISOString();
+
+    let nextSc = existing?.success_count ?? 0;
+    let nextFc = existing?.failure_count ?? 0;
+    let nextUi = existing?.ui_progress ?? null;
+    let nextMastered = existing?.flashcard_mastered === true;
+
+    if (action === "quiz_correct" || action === "quiz_incorrect") {
+      const current = displayQuizProgressFromRow(existing);
+      const stepped =
+        action === "quiz_correct"
+          ? clamp01(current + QUIZ_PROGRESS_STEP)
+          : clamp01(current - QUIZ_PROGRESS_STEP);
+      nextUi = stepped;
+    } else if (action === "flashcard_easy") {
+      nextMastered = true;
+    } else if (action === "flashcard_hard") {
+      nextMastered = false;
+    }
+
+    if (existing) {
+      await query(
+        `update practice_stats set
+           success_count = $3,
+           failure_count = $4,
+           last_seen_at = $5::timestamptz,
+           ui_progress = $6,
+           flashcard_mastered = $7
+         where id = $1::uuid`,
+        [existing.id, userId, nextSc, nextFc, nowIso, nextUi, nextMastered]
+      );
+    } else {
+      await query(
+        `insert into practice_stats (
+           user_id, vocab_id, success_count, failure_count,
+           last_seen_at, ui_progress, flashcard_mastered
+         ) values ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6, $7)`,
+        [userId, vocabId, nextSc, nextFc, nowIso, nextUi, nextMastered]
+      );
+    }
+
+    const progress = quizProgressFromAggregated({
+      ui_progress: nextUi,
+      flashcard_mastered: nextMastered
     });
 
-    if (insErr) {
-      // eslint-disable-next-line no-console
-      console.error("POST /vocab/practice insert:", insErr);
-      return res.status(500).json({ error: "Failed to save practice stats." });
-    }
+    return res.json({
+      vocab_id: vocabId,
+      success_count: nextSc,
+      failure_count: nextFc,
+      progress,
+      flashcard_mastered: nextMastered
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("POST /vocab/practice:", error);
+    return res.status(500).json({ error: "Failed to update practice stats." });
   }
-
-  const progress = quizProgressFromAggregated({
-    ui_progress: nextUi,
-    flashcard_mastered: nextMastered
-  });
-
-  return res.json({
-    vocab_id: vocabId,
-    success_count: nextSc,
-    failure_count: nextFc,
-    progress,
-    flashcard_mastered: nextMastered
-  });
 });
 
 vocabRouter.get("/stats", async (req, res) => {
@@ -461,31 +452,33 @@ vocabRouter.get("/stats", async (req, res) => {
       return res.status(400).json({ error: parsed.error });
     }
     const { startIso, endIso } = parsed;
-    const { data, error } = await supabaseAdmin
-      .from("vocabulary_entries")
-      .select("id")
-      .eq("user_id", userId)
-      .gte("created_at", startIso)
-      .lt("created_at", endIso);
-    if (error) {
+    try {
+      const { rows } = await query(
+        `select id from vocabulary_entries
+         where user_id = $1::uuid
+           and created_at >= $2::timestamptz
+           and created_at < $3::timestamptz`,
+        [userId, startIso, endIso]
+      );
+      entries = rows;
+    } catch (error) {
       return res.status(500).json({ error: "Failed to load vocab stats." });
     }
-    entries = data || [];
   }
 
   const ids = entries.map((e) => e.id);
   let statsByVocab = {};
   if (ids.length > 0) {
-    const { data: statsRows, error: statsErr } = await supabaseAdmin
-      .from("practice_stats")
-      .select(
-        "vocab_id, success_count, failure_count, ui_progress, flashcard_mastered"
-      )
-      .eq("user_id", userId)
-      .in("vocab_id", ids);
-
-    if (!statsErr && statsRows) {
+    try {
+      const { rows: statsRows } = await query(
+        `select vocab_id, success_count, failure_count, ui_progress, flashcard_mastered
+         from practice_stats
+         where user_id = $1::uuid and vocab_id = any($2::uuid[])`,
+        [userId, ids]
+      );
       statsByVocab = aggregateStatsByVocabId(statsRows);
+    } catch {
+      statsByVocab = {};
     }
   }
 

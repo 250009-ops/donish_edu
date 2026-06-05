@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { APP_DISPLAY_NAME } from "./branding.js";
 import { config, validateDeploymentConfig } from "./config.js";
 import { authRouter } from "./routes/auth.js";
 import { botRouter } from "./routes/bot.js";
@@ -27,7 +28,7 @@ app.use(express.json({ limit: "14mb" }));
 app.get("/", (req, res) => {
   res.json({
     service: "donish-backend",
-    message: "Donish API. Use /health for status.",
+    message: `${APP_DISPLAY_NAME} API. Use /health for status.`,
     endpoints: [
       "/health",
       "/auth",
@@ -77,7 +78,7 @@ app.use((err, req, res, _next) => {
 
 app.listen(config.port, () => {
   // eslint-disable-next-line no-console
-  console.log(`Donish backend listening on port ${config.port}`);
+  console.log(`${APP_DISPLAY_NAME} backend listening on port ${config.port}`);
 });
 
 export default app;
