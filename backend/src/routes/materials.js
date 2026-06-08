@@ -1,7 +1,11 @@
 import express from "express";
 import multer from "multer";
 import { query } from "../db/pool.js";
-import { requireAuth } from "../middlewares/authMiddleware.js";
+import {
+  requireAuth,
+  requireRegisteredDevice
+} from "../middlewares/authMiddleware.js";
+import { requireMaterialUploadSlot } from "../middlewares/planMiddleware.js";
 import {
   authenticatedApiLimiter,
   extractPreviewLimiter
@@ -47,6 +51,7 @@ const upload = multer({
 });
 
 materialsRouter.use(requireAuth);
+materialsRouter.use(requireRegisteredDevice);
 materialsRouter.use(authenticatedApiLimiter);
 
 function parseMaterialsListQuery(req) {
@@ -297,6 +302,7 @@ function handleMulter(req, res, next) {
 
 materialsRouter.post(
   "/",
+  requireMaterialUploadSlot,
   (req, res, next) => {
     const ct = req.headers["content-type"] || "";
     if (ct.includes("multipart/form-data")) {

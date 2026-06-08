@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
 import '../../util/material_file_reader.dart';
+import '../billing/models/subscription_info.dart';
+import '../billing/widgets/premium_paywall_dialog.dart';
 import 'material_pdf_help_dialog.dart';
 import 'material_text_review_screen.dart';
 
@@ -18,6 +20,9 @@ class AddMaterialScreen extends StatefulWidget {
     required this.onFormChanged,
     required this.onUploadSuccess,
     required this.onRegisterUpload,
+    this.subscription,
+    this.onUpgrade,
+    this.onCreateCheckout,
   });
 
   final void Function({
@@ -31,6 +36,9 @@ class AddMaterialScreen extends StatefulWidget {
   final VoidCallback onUploadSuccess;
 
   final void Function(VoidCallback upload) onRegisterUpload;
+  final SubscriptionInfo? subscription;
+  final VoidCallback? onUpgrade;
+  final Future<String> Function()? onCreateCheckout;
 
   @override
   State<AddMaterialScreen> createState() => _AddMaterialScreenState();
@@ -121,6 +129,21 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
     _notifyFormChanged();
   }
 
+  Future<void> _showUpgradePaywall(String message) async {
+    final checkout = widget.onCreateCheckout;
+    if (checkout == null) {
+      widget.onUpgrade?.call();
+      return;
+    }
+    await showPremiumPaywallDialog(
+      context,
+      title: 'Upload limit reached',
+      message: message,
+      subscription: widget.subscription ?? SubscriptionInfo.freeDefaults(),
+      onCreateCheckout: checkout,
+    );
+  }
+
   Future<void> _upload() async {
     if (_fileName == null) return;
     if (_nameController.text.trim().isEmpty) return;
@@ -184,6 +207,9 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
             title: _nameController.text.trim(),
             materialType: _selectedType!,
             englishLevel: _selectedLevel!,
+            subscription: widget.subscription,
+            onUpgrade: widget.onUpgrade,
+            onCreateCheckout: widget.onCreateCheckout,
           ),
         ),
       );
@@ -192,6 +218,10 @@ class _AddMaterialScreenState extends State<AddMaterialScreen> {
       if (saved == true) widget.onUploadSuccess();
     } catch (e) {
       if (!mounted) return;
+      if (e is ApiException && e.code == 'upgrade_required') {
+        await _showUpgradePaywall(e.message);
+        return;
+      }
       showMaterialUploadError(context, e);
     } finally {
       if (mounted) {

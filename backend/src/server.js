@@ -9,6 +9,8 @@ import { telegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { materialsRouter } from "./routes/materials.js";
 import { vocabRouter } from "./routes/vocab.js";
 import { translateRouter } from "./routes/translate.js";
+import { billingRouter } from "./routes/billing.js";
+import { lemonWebhookRouter } from "./routes/lemonWebhook.js";
 import { trustProxy } from "./middlewares/rateLimits.js";
 
 validateDeploymentConfig();
@@ -22,6 +24,7 @@ app.use(
     origin: "*"
   })
 );
+app.use("/webhooks", lemonWebhookRouter);
 /** Base64 PDF uploads: allow ~10 MB file + encoding overhead. */
 app.use(express.json({ limit: "14mb" }));
 
@@ -43,7 +46,11 @@ app.get("/", (req, res) => {
       "/vocab/days",
       "/vocab/lexicon",
       "/vocab/practice",
-      "/translate"
+      "/translate",
+      "/billing/subscription (GET)",
+      "/billing/checkout (POST)",
+      "/billing/devices/revoke-others (POST)",
+      "/webhooks/lemon-squeezy (POST)"
     ]
   });
 });
@@ -58,6 +65,7 @@ app.use("/bot", botRouter);
 app.use("/materials", materialsRouter);
 app.use("/vocab", vocabRouter);
 app.use("/translate", translateRouter);
+app.use("/billing", billingRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });

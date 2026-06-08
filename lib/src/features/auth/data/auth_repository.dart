@@ -1,18 +1,23 @@
+import '../../../core/device/device_id_store.dart';
 import '../../../core/local_date.dart';
 import '../../../core/network/api_client.dart';
+import '../../billing/models/subscription_info.dart';
 import 'auth_session_store.dart';
 
 class AuthRepository {
   AuthRepository(
     this._apiClient, {
     AuthSessionStore? sessionStore,
-  }) : _sessionStore = sessionStore ?? AuthSessionStore();
+    DeviceIdStore? deviceIdStore,
+  })  : _sessionStore = sessionStore ?? AuthSessionStore(),
+        _deviceIdStore = deviceIdStore ?? DeviceIdStore.instance;
 
   final ApiClient _apiClient;
   final AuthSessionStore _sessionStore;
+  final DeviceIdStore _deviceIdStore;
 
   /// Signs in and persists the session. Returns the user's Telegram ID as string.
-  Future<String> login({
+  Future<AuthLoginResult> login({
     required String id,
     required String password,
   }) async {
@@ -21,11 +26,14 @@ class AuthRepository {
       throw const AuthException('Please enter a valid ID (numbers only).');
     }
 
+    final deviceId = await _deviceIdStore.getOrCreate();
     final json = await _apiClient.postJson(
       '/auth/login',
       body: {
         'id': idNum,
         'password': password,
+        'device_id': deviceId,
+        'device_label': _deviceIdStore.deviceLabel(),
       },
     );
 
@@ -47,11 +55,19 @@ class AuthRepository {
     final memberSinceIso =
         createdAt is String ? createdAt : createdAt?.toString();
 
+    SubscriptionInfo subscription = SubscriptionInfo.freeDefaults();
+    final subJson = json['subscription'];
+    if (subJson is Map<String, dynamic>) {
+      subscription = SubscriptionInfo.fromJson(subJson);
+    }
+
     _apiClient.setToken(token);
+    _apiClient.setDeviceId(deviceId);
     try {
       await _sessionStore.save(
         token: token,
         userId: userId,
+        deviceId: deviceId,
         memberSinceIso: memberSinceIso,
       );
     } catch (e) {
@@ -60,15 +76,37 @@ class AuthRepository {
         'Try again or reinstall the app. ($e)',
       );
     }
-    return userId;
+    return AuthLoginResult(userId: userId, subscription: subscription);
   }
 
   /// Restores a saved session. Returns user id if valid, otherwise null.
   Future<String?> restoreSession() async {
     final session = await _sessionStore.read();
     if (session == null) return null;
+
+    final deviceId = await _deviceIdStore.getOrCreate();
+    if (deviceId != session.deviceId) {
+      await _sessionStore.save(
+        token: session.token,
+        userId: session.userId,
+        deviceId: deviceId,
+        memberSinceIso: session.memberSinceIso,
+      );
+    }
+
     _apiClient.setToken(session.token);
-    return session.userId;
+    _apiClient.setDeviceId(deviceId);
+
+    try {
+      await _apiClient.getJson('/billing/subscription', authenticated: true);
+      return session.userId;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401) {
+        await logout(localOnly: true);
+        return null;
+      }
+      rethrow;
+    }
   }
 
   /// Account signup instant (UTC ISO), for calendar bounds.
@@ -82,10 +120,27 @@ class AuthRepository {
   }
 
   /// Clears saved credentials and in-memory token (explicit sign out).
-  Future<void> logout() async {
+  Future<void> logout({bool localOnly = false}) async {
+    if (!localOnly) {
+      try {
+        await _apiClient.postJson('/auth/logout', authenticated: true);
+      } catch (_) {
+        // Still clear local session if server call fails.
+      }
+    }
     _apiClient.clearToken();
     await _sessionStore.clear();
   }
+}
+
+class AuthLoginResult {
+  const AuthLoginResult({
+    required this.userId,
+    required this.subscription,
+  });
+
+  final String userId;
+  final SubscriptionInfo subscription;
 }
 
 class AuthException implements Exception {

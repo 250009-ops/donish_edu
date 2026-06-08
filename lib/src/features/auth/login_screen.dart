@@ -6,6 +6,7 @@ import 'data/auth_repository.dart';
 import '../../core/config/app_branding.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../billing/widgets/device_limit_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onAuthenticated});
@@ -38,12 +39,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     try {
-      final userId = await _authRepository.login(
+      final result = await _authRepository.login(
         id: _idController.text.trim(),
         password: _passwordController.text,
       );
       if (!mounted) return;
-      widget.onAuthenticated(userId);
+      widget.onAuthenticated(result.userId);
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -52,10 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-        _errorMessage = e.message;
-      });
+      setState(() => _isSubmitting = false);
+      if (e.code == 'device_limit_reached') {
+        await showDeviceLimitDialog(context, maxDevices: 3);
+        return;
+      }
+      setState(() => _errorMessage = e.message);
     } catch (e) {
       if (!mounted) return;
       setState(() {

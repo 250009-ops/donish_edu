@@ -6,3 +6,4 @@
 \i migration_practice_ui_progress.sql
 \i migration_flashcard_mastered.sql
 \i migration_scale_indexes.sql
+\i migration_subscriptions_devices.sql

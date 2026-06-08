@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'core/network/api_client.dart';
+import 'features/billing/data/billing_repository.dart';
+import 'features/billing/models/subscription_info.dart';
+import 'features/billing/widgets/premium_upgrade_sheet.dart';
 import 'features/materials/add_material_screen.dart';
 import 'features/materials/materials_screen.dart';
 import 'features/vocab/vocab_screen.dart';
@@ -14,7 +18,6 @@ const Color _kViolet = Color(0xFF8840FE);
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.userId, this.onLogOut});
 
-  /// Currently authenticated user's numeric ID (as string).
   final String userId;
   final VoidCallback? onLogOut;
 
@@ -22,32 +25,85 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final GlobalKey<MaterialsScreenState> _materialsScreenKey = GlobalKey();
   final GlobalKey<VocabScreenState> _vocabScreenKey = GlobalKey();
+  final BillingRepository _billingRepository =
+      BillingRepository(ApiClient.instance);
 
-  /// 0 = Materials, 1 = Add Material, 2 = Vocabulary
   int _currentIndex = 0;
-
-  /// Recreate Add Material screen after successful upload so form resets.
   int _addScreenSeed = 0;
-
-  /// Set by AddMaterialScreen when it mounts; used when user taps FAB to upload.
   VoidCallback? _addMaterialUpload;
 
-  // Lifted add-material form state so it persists when switching tabs
-  // and the center FAB can reflect upload readiness.
   bool _addHasPdf = false;
   String _addName = '';
   String? _addType;
   String? _addLevel;
   bool _addUploading = false;
 
+  SubscriptionInfo _subscription = SubscriptionInfo.freeDefaults();
+  bool _loadingSubscription = true;
+
   bool get _addFormComplete =>
       _addHasPdf &&
       _addName.trim().isNotEmpty &&
       _addType != null &&
       _addLevel != null;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadSubscription();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadSubscription();
+    }
+  }
+
+  Future<void> _loadSubscription() async {
+    try {
+      final sub = await _billingRepository.fetchSubscription();
+      if (!mounted) return;
+      setState(() {
+        _subscription = sub;
+        _loadingSubscription = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingSubscription = false);
+    }
+  }
+
+  Future<String> _createCheckout() => _billingRepository.createCheckoutUrl();
+
+  void _openUpgrade({String? reason}) {
+    if (!_subscription.billingEnabled) return;
+    showPremiumUpgradeSheet(
+      context,
+      subscription: _subscription,
+      onCreateCheckout: _createCheckout,
+      reason: reason,
+    ).then((_) => _loadSubscription());
+  }
+
+  Future<void> _revokeOtherDevices() async {
+    await _billingRepository.revokeOtherDevices();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Other devices have been signed out.')),
+    );
+    await _loadSubscription();
+  }
 
   void _onAddFormChanged({
     required bool hasPdf,
@@ -77,6 +133,7 @@ class _AppShellState extends State<AppShell> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _materialsScreenKey.currentState?.reloadMaterials();
+      _loadSubscription();
     });
   }
 
@@ -96,19 +153,23 @@ class _AppShellState extends State<AppShell> {
       MaterialsScreen(
         key: _materialsScreenKey,
         userId: widget.userId,
+        subscription: _subscription,
+        onUpgrade: () => _openUpgrade(),
       ),
       AddMaterialScreen(
         key: ValueKey('add_$_addScreenSeed'),
         onFormChanged: _onAddFormChanged,
         onUploadSuccess: _onAddUploadSuccess,
         onRegisterUpload: (cb) => _addMaterialUpload = cb,
+        subscription: _subscription,
+        onUpgrade: () => _openUpgrade(),
+        onCreateCheckout: _createCheckout,
       ),
       VocabScreen(key: _vocabScreenKey, userId: widget.userId),
     ];
 
     final isAddPage = _currentIndex == 1;
 
-    // Smart center button: Default [+] amber | Upload (violet, 50% or 100%) | Spinner
     Widget centerButton;
     if (isAddPage && _addUploading) {
       centerButton = SizedBox(
@@ -158,7 +219,10 @@ class _AppShellState extends State<AppShell> {
           children: [
             DonishTopBar(
               userDisplayName: 'ID ${widget.userId}',
+              subscription: _loadingSubscription ? null : _subscription,
               onLogOut: widget.onLogOut,
+              onUpgrade: () => _openUpgrade(),
+              onRevokeOtherDevices: _revokeOtherDevices,
             ),
             Expanded(
               child: IndexedStack(

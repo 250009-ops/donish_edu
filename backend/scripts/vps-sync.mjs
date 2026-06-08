@@ -58,6 +58,10 @@ execSync(
 
 await scp(tarball, "/tmp/backend-bundle.tgz");
 await run(
-  "cd /var/www/donish_edu/backend && tar -xzf /tmp/backend-bundle.tgz && npm install --omit=dev && pm2 restart donish-api"
+  `cd /var/www/donish_edu/backend && tar -xzf /tmp/backend-bundle.tgz && npm install --omit=dev
+if command -v psql >/dev/null 2>&1; then
+  sudo -u postgres psql -d donish -f db/migration_subscriptions_devices.sql 2>/dev/null || psql -U donish -d donish -f db/migration_subscriptions_devices.sql || true
+fi
+pm2 restart donish-api`
 );
-console.log("Synced.");
+console.log("Synced backend + migration.");

@@ -11,13 +11,29 @@ class ApiClient {
   static final ApiClient instance = ApiClient._();
 
   String? _token;
+  String? _deviceId;
 
   void setToken(String token) {
     _token = token;
   }
 
+  void setDeviceId(String deviceId) {
+    _deviceId = deviceId;
+  }
+
   void clearToken() {
     _token = null;
+  }
+
+  Map<String, String> _authHeaders({required bool authenticated}) {
+    final headers = <String, String>{};
+    if (authenticated && _token != null) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+    if (authenticated && _deviceId != null && _deviceId!.isNotEmpty) {
+      headers['X-Device-Id'] = _deviceId!;
+    }
+    return headers;
   }
 
   Future<dynamic> getJson(
@@ -34,12 +50,7 @@ class ApiClient {
               ...queryParameters,
             },
           );
-    final headers = <String, String>{};
-    if (authenticated && _token != null) {
-      headers['Authorization'] = 'Bearer $_token';
-    }
-
-    final response = await http.get(uri, headers: headers);
+    final response = await http.get(uri, headers: _authHeaders(authenticated: authenticated));
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
 
     if (response.statusCode >= 400) {
@@ -60,12 +71,10 @@ class ApiClient {
     bool authenticated = false,
   }) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
-    final headers = <String, String>{};
-    if (authenticated && _token != null) {
-      headers['Authorization'] = 'Bearer $_token';
-    }
-
-    final response = await http.delete(uri, headers: headers);
+    final response = await http.delete(
+      uri,
+      headers: _authHeaders(authenticated: authenticated),
+    );
 
     if (response.statusCode >= 400) {
       dynamic decoded;
@@ -93,10 +102,8 @@ class ApiClient {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
     final headers = <String, String>{
       'Content-Type': 'application/json',
+      ..._authHeaders(authenticated: authenticated),
     };
-    if (authenticated && _token != null) {
-      headers['Authorization'] = 'Bearer $_token';
-    }
 
     final response = await http.post(
       uri,
@@ -141,8 +148,8 @@ class ApiClient {
         contentType: MediaType('application', 'pdf'),
       ),
     );
-    if (authenticated && _token != null) {
-      request.headers['Authorization'] = 'Bearer $_token';
+    for (final entry in _authHeaders(authenticated: authenticated).entries) {
+      request.headers[entry.key] = entry.value;
     }
 
     final streamed = await request.send();

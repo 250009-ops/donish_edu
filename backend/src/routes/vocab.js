@@ -1,6 +1,9 @@
 import express from "express";
 import { query } from "../db/pool.js";
-import { requireAuth } from "../middlewares/authMiddleware.js";
+import {
+  requireAuth,
+  requireRegisteredDevice
+} from "../middlewares/authMiddleware.js";
 import { authenticatedApiLimiter } from "../middlewares/rateLimits.js";
 import {
   isValidLocalDate,
@@ -16,6 +19,7 @@ import {
 export const vocabRouter = express.Router();
 
 vocabRouter.use(requireAuth);
+vocabRouter.use(requireRegisteredDevice);
 vocabRouter.use(authenticatedApiLimiter);
 
 const QUIZ_PROGRESS_STEP = 0.25;

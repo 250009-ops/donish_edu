@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
+import '../billing/models/subscription_info.dart';
 import 'data/materials_cache_store.dart';
 import 'material_reader_screen.dart';
 
@@ -98,9 +99,16 @@ String _formatMaterialListTimestamp(DateTime? utc) {
 }
 
 class MaterialsScreen extends StatefulWidget {
-  const MaterialsScreen({super.key, required this.userId});
+  const MaterialsScreen({
+    super.key,
+    required this.userId,
+    this.subscription,
+    this.onUpgrade,
+  });
 
   final String userId;
+  final SubscriptionInfo? subscription;
+  final VoidCallback? onUpgrade;
 
   @override
   MaterialsScreenState createState() => MaterialsScreenState();
@@ -406,6 +414,13 @@ class MaterialsScreenState extends State<MaterialsScreen> {
             },
             onSearchChanged: _onSearchChanged,
           ),
+          if (widget.subscription != null &&
+              widget.subscription!.billingEnabled &&
+              widget.subscription!.isFree)
+            _FreePlanBanner(
+              subscription: widget.subscription!,
+              onUpgrade: widget.onUpgrade,
+            ),
           if (_refreshing)
             const LinearProgressIndicator(
               minHeight: 2,
@@ -1027,6 +1042,56 @@ class _MaterialCard extends StatelessWidget {
             onPressed: onDelete,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FreePlanBanner extends StatelessWidget {
+  const _FreePlanBanner({
+    required this.subscription,
+    this.onUpgrade,
+  });
+
+  final SubscriptionInfo subscription;
+  final VoidCallback? onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final used = subscription.usage.materialsCount;
+    final max = subscription.limits.freeMaxMaterials;
+    return Material(
+      color: const Color(0xFFF5F3FF),
+      child: InkWell(
+        onTap: onUpgrade,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.workspace_premium_rounded, color: _kViolet, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$used of $max free PDF${max == 1 ? '' : 's'} · ${subscription.translateRemainingOnFree} word taps left',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF4C1D95),
+                  ),
+                ),
+              ),
+              if (onUpgrade != null)
+                Text(
+                  'Upgrade',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _kViolet,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

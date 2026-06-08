@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
+import '../billing/models/subscription_info.dart';
+import '../billing/widgets/premium_paywall_dialog.dart';
 import 'material_pdf_help_dialog.dart';
 
 const Color _kViolet = Color(0xFF8840FE);
@@ -16,6 +18,9 @@ class MaterialTextReviewScreen extends StatefulWidget {
     required this.title,
     required this.materialType,
     required this.englishLevel,
+    this.subscription,
+    this.onUpgrade,
+    this.onCreateCheckout,
   });
 
   final String initialExtractedText;
@@ -24,6 +29,9 @@ class MaterialTextReviewScreen extends StatefulWidget {
   final String title;
   final String materialType;
   final String englishLevel;
+  final SubscriptionInfo? subscription;
+  final VoidCallback? onUpgrade;
+  final Future<String> Function()? onCreateCheckout;
 
   @override
   State<MaterialTextReviewScreen> createState() =>
@@ -107,6 +115,21 @@ class _MaterialTextReviewScreenState extends State<MaterialTextReviewScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
+      if (e is ApiException && e.code == 'upgrade_required') {
+        final checkout = widget.onCreateCheckout;
+        if (checkout != null) {
+          await showPremiumPaywallDialog(
+            context,
+            title: 'Upload limit reached',
+            message: e.message,
+            subscription: widget.subscription ?? SubscriptionInfo.freeDefaults(),
+            onCreateCheckout: checkout,
+          );
+        } else {
+          widget.onUpgrade?.call();
+        }
+        return;
+      }
       showMaterialUploadError(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);

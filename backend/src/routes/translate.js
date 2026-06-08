@@ -1,6 +1,13 @@
 import express from "express";
 import axios from "axios";
-import { requireAuth } from "../middlewares/authMiddleware.js";
+import {
+  requireAuth,
+  requireRegisteredDevice
+} from "../middlewares/authMiddleware.js";
+import {
+  checkTranslateQuota,
+  consumeTranslateQuota
+} from "../middlewares/planMiddleware.js";
 import { config } from "../config.js";
 import { translateLimiter } from "../middlewares/rateLimits.js";
 import {
@@ -15,7 +22,9 @@ import {
 export const translateRouter = express.Router();
 
 translateRouter.use(requireAuth);
+translateRouter.use(requireRegisteredDevice);
 translateRouter.use(translateLimiter);
+translateRouter.use(checkTranslateQuota);
 
 function normalizeContext(input) {
   return String(input || "").trim().replace(/\s+/g, " ");
@@ -196,6 +205,7 @@ translateRouter.post("/", async (req, res) => {
   }
 
   const userId = req.user.id;
+  res.locals.translateUserId = userId;
 
   const pruneErr = await pruneOlderThanRetention(userId);
   if (pruneErr) {
@@ -286,6 +296,8 @@ translateRouter.post("/", async (req, res) => {
       // eslint-disable-next-line no-console
       console.error("POST /translate tap record:", tapErr);
     }
+
+    await consumeTranslateQuota(res, false);
 
     return res.json(
       buildPayload({

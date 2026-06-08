@@ -2,21 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/config/app_branding.dart';
+import '../features/billing/models/subscription_info.dart';
 
 /// Persistent top bar: Gotcha wordmark + profile icon.
-/// Tapping profile shows a pop-up card (user name + Log out) with transition.
 class DonishTopBar extends StatefulWidget {
   const DonishTopBar({
     super.key,
     this.userDisplayName,
+    this.subscription,
     this.onLogOut,
+    this.onUpgrade,
+    this.onRevokeOtherDevices,
   });
 
-  /// Display name in the profile card (e.g. "Javohir Abdullayev"). If null, shows "User".
   final String? userDisplayName;
-
-  /// Called when the user taps "Log out" in the profile card.
+  final SubscriptionInfo? subscription;
   final VoidCallback? onLogOut;
+  final VoidCallback? onUpgrade;
+  final Future<void> Function()? onRevokeOtherDevices;
 
   @override
   State<DonishTopBar> createState() => _DonishTopBarState();
@@ -42,10 +45,16 @@ class _DonishTopBarState extends State<DonishTopBar> {
         anchorTopLeft: offset,
         anchorSize: size,
         displayName: widget.userDisplayName ?? 'User',
+        subscription: widget.subscription,
         onLogOut: () {
           dismiss();
           widget.onLogOut?.call();
         },
+        onUpgrade: () {
+          dismiss();
+          widget.onUpgrade?.call();
+        },
+        onRevokeOtherDevices: widget.onRevokeOtherDevices,
         onDismiss: dismiss,
       ),
     );
@@ -90,27 +99,31 @@ class _DonishTopBarState extends State<DonishTopBar> {
       ),
     );
   }
-
 }
 
-const double _kProfileCardWidth = 240;
+const double _kProfileCardWidth = 272;
 const double _kProfileCardRadius = 12;
 
-/// Overlay that shows the profile card with enter/exit transition.
 class _ProfileCardOverlay extends StatefulWidget {
   const _ProfileCardOverlay({
     required this.anchorTopLeft,
     required this.anchorSize,
     required this.displayName,
     required this.onLogOut,
+    required this.onUpgrade,
     required this.onDismiss,
+    this.subscription,
+    this.onRevokeOtherDevices,
   });
 
   final Offset anchorTopLeft;
   final Size anchorSize;
   final String displayName;
+  final SubscriptionInfo? subscription;
   final VoidCallback onLogOut;
+  final VoidCallback onUpgrade;
   final VoidCallback onDismiss;
+  final Future<void> Function()? onRevokeOtherDevices;
 
   @override
   State<_ProfileCardOverlay> createState() => _ProfileCardOverlayState();
@@ -121,6 +134,7 @@ class _ProfileCardOverlayState extends State<_ProfileCardOverlay>
   late AnimationController _controller;
   late Animation<double> _opacity;
   late Animation<Offset> _slide;
+  bool _revoking = false;
 
   @override
   void initState() {
@@ -151,12 +165,27 @@ class _ProfileCardOverlayState extends State<_ProfileCardOverlay>
     });
   }
 
+  Future<void> _revokeOthers() async {
+    final action = widget.onRevokeOtherDevices;
+    if (action == null || _revoking) return;
+    setState(() => _revoking = true);
+    try {
+      await action();
+      if (mounted) _dismiss();
+    } finally {
+      if (mounted) setState(() => _revoking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
     double left = widget.anchorTopLeft.dx + widget.anchorSize.width - _kProfileCardWidth;
     left = left.clamp(12.0, screenSize.width - _kProfileCardWidth - 12);
     final top = widget.anchorTopLeft.dy + widget.anchorSize.height + 8;
+    final sub = widget.subscription;
+    final isPremium = sub?.isPremium == true;
+    final billingEnabled = sub?.billingEnabled == true;
 
     return Stack(
       children: [
@@ -192,13 +221,13 @@ class _ProfileCardOverlayState extends State<_ProfileCardOverlay>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.person_rounded,
                               size: 22,
-                              color: const Color(0xFF9CA3AF),
+                              color: Color(0xFF9CA3AF),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -215,42 +244,88 @@ class _ProfileCardOverlayState extends State<_ProfileCardOverlay>
                           ],
                         ),
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: const Color(0xFFE5E7EB),
-                      ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            widget.onLogOut();
-                          },
-                          borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(_kProfileCardRadius),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.logout_rounded,
-                                  size: 20,
-                                  color: const Color(0xFFDC2626),
+                      if (sub != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (billingEnabled) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isPremium
+                                        ? const Color(0xFFFFF7ED)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(
+                                    isPremium ? 'Premium plan' : 'Free plan',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isPremium
+                                          ? const Color(0xFFB45309)
+                                          : const Color(0xFF6B7280),
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(height: 6),
                                 Text(
-                                  'Log out',
+                                  isPremium
+                                      ? '${_formatUzs(sub.priceUzs)} / month'
+                                      : '${sub.usage.materialsCount}/${sub.limits.freeMaxMaterials} PDF · ${sub.usage.translateTotal}/${sub.limits.freeMaxTranslateTotal} taps',
                                   style: GoogleFonts.inter(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFFDC2626),
+                                    fontSize: 12,
+                                    color: const Color(0xFF6B7280),
                                   ),
                                 ),
                               ],
-                            ),
+                              Text(
+                                'Up to ${sub.limits.maxDevices} devices · personal use',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        if (billingEnabled && !isPremium)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                            child: FilledButton(
+                              onPressed: widget.onUpgrade,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppBranding.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              child: Text(
+                                'Upgrade to Premium',
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        if (sub.usage.devicesCount > 1 &&
+                            widget.onRevokeOtherDevices != null)
+                          _menuAction(
+                            icon: Icons.phonelink_erase_rounded,
+                            label: _revoking ? 'Freeing devices…' : 'Free other devices',
+                            color: const Color(0xFF374151),
+                            onTap: _revoking ? null : _revokeOthers,
+                          ),
+                      ],
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      _menuAction(
+                        icon: Icons.logout_rounded,
+                        label: 'Log out',
+                        color: const Color(0xFFDC2626),
+                        onTap: widget.onLogOut,
+                        bottomRadius: true,
                       ),
                     ],
                   ),
@@ -261,5 +336,50 @@ class _ProfileCardOverlayState extends State<_ProfileCardOverlay>
         ),
       ],
     );
+  }
+
+  Widget _menuAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onTap,
+    bool bottomRadius = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: bottomRadius
+            ? const BorderRadius.vertical(bottom: Radius.circular(_kProfileCardRadius))
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatUzs(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return '${buf.toString()} UZS';
   }
 }
