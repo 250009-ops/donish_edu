@@ -35,7 +35,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _addScreenSeed = 0;
   VoidCallback? _addMaterialUpload;
 
-  bool _addHasPdf = false;
+  bool _addHasContent = false;
   String _addName = '';
   String? _addType;
   String? _addLevel;
@@ -45,7 +45,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _loadingSubscription = true;
 
   bool get _addFormComplete =>
-      _addHasPdf &&
+      _addHasContent &&
       _addName.trim().isNotEmpty &&
       _addType != null &&
       _addLevel != null;
@@ -106,14 +106,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   void _onAddFormChanged({
-    required bool hasPdf,
+    required bool hasContent,
     required String name,
     required String? type,
     required String? level,
     required bool uploading,
   }) {
     setState(() {
-      _addHasPdf = hasPdf;
+      _addHasContent = hasContent;
       _addName = name;
       _addType = type;
       _addLevel = level;
@@ -125,7 +125,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     setState(() {
       _currentIndex = 0;
       _addScreenSeed++;
-      _addHasPdf = false;
+      _addHasContent = false;
       _addName = '';
       _addType = null;
       _addLevel = null;

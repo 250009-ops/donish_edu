@@ -98,6 +98,7 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = false,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     final uri = Uri.parse('${AppConfig.apiBaseUrl}$path');
     final headers = <String, String>{
@@ -105,11 +106,13 @@ class ApiClient {
       ..._authHeaders(authenticated: authenticated),
     };
 
-    final response = await http.post(
-      uri,
-      headers: headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await http
+        .post(
+          uri,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(timeout);
 
     final decoded = jsonDecode(response.body.isEmpty ? '{}' : response.body);
 

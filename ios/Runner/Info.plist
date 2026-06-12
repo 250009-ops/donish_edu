@@ -49,6 +49,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Gotcha uses the camera to photograph pages for text extraction.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Gotcha uses your photo library to import page images for text extraction.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

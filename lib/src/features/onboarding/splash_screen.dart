@@ -242,12 +242,14 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(32),
-                  child: Image.asset(
-                    SplashScreen._logoAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => ColoredBox(
-                      color: SplashScreen.primary,
-                      child: Center(
+                  child: ColoredBox(
+                    color: SplashScreen.primary,
+                    child: Image.asset(
+                      SplashScreen._logoAsset,
+                      width: 148,
+                      height: 148,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
                         child: Text(
                           AppBranding.displayName,
                           style: AppBranding.wordmark(

@@ -284,14 +284,20 @@ class _MaterialCardSkeleton extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          SkeletonBox(width: 40, height: 40, borderRadius: 999),
+          SkeletonBox(width: 44, height: 44, borderRadius: 12),
           SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SkeletonBox(height: 14, borderRadius: 6),
-                SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: SkeletonBox(height: 15, borderRadius: 6)),
+                    SizedBox(width: 8),
+                    SkeletonBox(width: 72, height: 11, borderRadius: 4),
+                  ],
+                ),
+                SizedBox(height: 8),
                 Row(
                   children: [
                     SkeletonBox(width: 36, height: 22, borderRadius: 999),
@@ -299,8 +305,6 @@ class _MaterialCardSkeleton extends StatelessWidget {
                     SkeletonBox(width: 72, height: 22, borderRadius: 999),
                   ],
                 ),
-                SizedBox(height: 8),
-                SkeletonBox(width: 100, height: 11, borderRadius: 4),
               ],
             ),
           ),

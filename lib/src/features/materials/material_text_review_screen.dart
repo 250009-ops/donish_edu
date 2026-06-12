@@ -18,6 +18,8 @@ class MaterialTextReviewScreen extends StatefulWidget {
     required this.title,
     required this.materialType,
     required this.englishLevel,
+    this.reviewHint =
+        'Last step: tap "Save to Materials" below so this upload appears on your Materials page.',
     this.subscription,
     this.onUpgrade,
     this.onCreateCheckout,
@@ -29,6 +31,7 @@ class MaterialTextReviewScreen extends StatefulWidget {
   final String title;
   final String materialType;
   final String englishLevel;
+  final String reviewHint;
   final SubscriptionInfo? subscription;
   final VoidCallback? onUpgrade;
   final Future<String> Function()? onCreateCheckout;
@@ -170,7 +173,7 @@ class _MaterialTextReviewScreenState extends State<MaterialTextReviewScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Text(
-                'Last step: tap "Save to Materials" below so this upload appears on your Materials page.',
+                widget.reviewHint,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   height: 1.4,
@@ -187,7 +190,9 @@ class _MaterialTextReviewScreenState extends State<MaterialTextReviewScreen> {
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
                   decoration: InputDecoration(
-                    hintText: 'Extracted text...',
+                    hintText: widget.initialExtractedText.isEmpty
+                        ? 'Type or paste English text here...'
+                        : 'Extracted text...',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(

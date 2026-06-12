@@ -74,6 +74,13 @@ class MaterialSummary {
       };
 }
 
+/// Human-readable title for list cards (e.g. `road_engineering` → `road engineering`).
+String _displayMaterialTitle(String title) {
+  final trimmed = title.trim();
+  if (trimmed.isEmpty) return 'Untitled';
+  return trimmed.replaceAll('_', ' ');
+}
+
 /// Compact local date + 24h time for list cards (e.g. `Oct 24, 14:30`).
 String _formatMaterialListTimestamp(DateTime? utc) {
   if (utc == null) return '';
@@ -188,6 +195,10 @@ class MaterialsScreenState extends State<MaterialsScreen> {
       _selectedType != _typeOptions.first ||
       _selectedLevel != _levelOptions.first ||
       _searchQuery.trim().isNotEmpty;
+
+  /// Fresh shelf: no materials yet and user has not applied filters.
+  bool get _showSearchAndFilters =>
+      _items.isNotEmpty || _hasActiveFilters || _error != null;
 
   void _onScroll() {
     if (!mounted) return;
@@ -401,19 +412,20 @@ class MaterialsScreenState extends State<MaterialsScreen> {
       backgroundColor: const Color(0xFFF5F6FA),
       body: Column(
         children: [
-          _SearchAndFilters(
-            selectedType: _selectedType,
-            selectedLevel: _selectedLevel,
-            onTypeChanged: (v) {
-              setState(() => _selectedType = v!);
-              _reloadFromFilters();
-            },
-            onLevelChanged: (v) {
-              setState(() => _selectedLevel = v!);
-              _reloadFromFilters();
-            },
-            onSearchChanged: _onSearchChanged,
-          ),
+          if (_showSearchAndFilters)
+            _SearchAndFilters(
+              selectedType: _selectedType,
+              selectedLevel: _selectedLevel,
+              onTypeChanged: (v) {
+                setState(() => _selectedType = v!);
+                _reloadFromFilters();
+              },
+              onLevelChanged: (v) {
+                setState(() => _selectedLevel = v!);
+                _reloadFromFilters();
+              },
+              onSearchChanged: _onSearchChanged,
+            ),
           if (widget.subscription != null &&
               widget.subscription!.billingEnabled &&
               widget.subscription!.isFree)
@@ -478,12 +490,32 @@ class MaterialsScreenState extends State<MaterialsScreen> {
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No materials match your filters.',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    color: const Color(0xFF6B7280),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.filter_list_off_rounded,
+                      size: 40,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No matches',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Try different filters',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -530,81 +562,219 @@ class MaterialsScreenState extends State<MaterialsScreen> {
 }
 
 class _EmptyMaterialsState extends StatelessWidget {
+  static const _kAmber = Color(0xFFF59E0B);
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-      children: [
-        const SizedBox(height: 24),
-        Center(
-          child: Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Icon(
-              Icons.menu_book_rounded,
-              size: 44,
-              color: _kViolet,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Your reading shelf is empty',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF111827),
-            height: 1.25,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Upload a PDF (up to about 30 pages) to start reading in English. '
-          'Tap any word while you read to see an Uzbek translation and save words to your vocabulary.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6B7280),
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.touch_app_rounded, color: _kViolet.withOpacity(0.9), size: 22),
-                  const SizedBox(width: 10),
+                  Center(
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFF5F3FF), Color(0xFFEDE9FE)],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _kViolet.withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        size: 46,
+                        color: _kViolet,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   Text(
-                    'How to add your first material',
+                    'Start reading',
+                    textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
                       color: const Color(0xFF111827),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _FeatureChip(
+                        icon: Icons.library_add_outlined,
+                        label: 'PDF · Photo · Write',
+                        tint: _kViolet,
+                      ),
+                      SizedBox(width: 8),
+                      _FeatureChip(
+                        icon: Icons.touch_app_outlined,
+                        label: 'Tap words',
+                        tint: _kViolet,
+                      ),
+                      SizedBox(width: 8),
+                      _FeatureChip(
+                        icon: Icons.style_outlined,
+                        label: 'Vocab',
+                        tint: _kViolet,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Expanded(
+                          child: _FlowStep(
+                            icon: Icons.add_rounded,
+                            label: 'Add',
+                            color: _kAmber,
+                          ),
+                        ),
+                        _FlowArrow(),
+                        Expanded(
+                          child: _FlowStep(
+                            icon: Icons.photo_camera_rounded,
+                            label: 'Add content',
+                            color: _kViolet,
+                          ),
+                        ),
+                        _FlowArrow(),
+                        Expanded(
+                          child: _FlowStep(
+                            icon: Icons.edit_note_rounded,
+                            label: 'Review',
+                            color: _kViolet,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Column(
+                    children: [
+                      Icon(
+                        Icons.arrow_downward_rounded,
+                        size: 22,
+                        color: _kAmber.withValues(alpha: 0.85),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap + below',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 14),
-              _StepRow(number: '1', text: 'Tap the + button below.'),
-              _StepRow(number: '2', text: 'Choose a PDF, name it, and pick type & level.'),
-              _StepRow(number: '3', text: 'Tap the cloud upload button to send it to your account.'),
-            ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FeatureChip extends StatelessWidget {
+  const _FeatureChip({
+    required this.icon,
+    required this.label,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: tint.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: tint),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: tint,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlowStep extends StatelessWidget {
+  const _FlowStep({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(icon, size: 26, color: color),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF374151),
           ),
         ),
       ],
@@ -612,48 +782,17 @@ class _EmptyMaterialsState extends StatelessWidget {
   }
 }
 
-class _StepRow extends StatelessWidget {
-  const _StepRow({required this.number, required this.text});
-
-  final String number;
-  final String text;
+class _FlowArrow extends StatelessWidget {
+  const _FlowArrow();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              number,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFFD97706),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                height: 1.45,
-                color: const Color(0xFF374151),
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Icon(
+        Icons.arrow_forward_rounded,
+        size: 18,
+        color: const Color(0xFFD1D5DB),
       ),
     );
   }
@@ -745,73 +884,57 @@ class _MaterialsFilterDropdown extends StatefulWidget {
 }
 
 class _MaterialsFilterDropdownState extends State<_MaterialsFilterDropdown> {
-  final GlobalKey _triggerKey = GlobalKey();
-
-  void _openMenu() async {
-    final box = _triggerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final offset = box.localToGlobal(Offset.zero);
-    const itemHeight = 44.0;
-    final menuWidth = 200.0;
-    final menuHeight = widget.options.length * itemHeight;
-    final top = offset.dy + box.size.height + 4;
-    final left = offset.dx;
-    final right = left + menuWidth;
-    final bottom = top + menuHeight;
-
-    final selected = await showMenu<String>(
+  Future<void> _openMenu() async {
+    final selected = await showModalBottomSheet<String>(
       context: context,
-      position: RelativeRect.fromLTRB(left, top, right, bottom),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      color: Colors.white,
-      elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.12),
-      items: widget.options.map((option) {
-        final isSelected = widget.value == option;
-        return PopupMenuItem<String>(
-          value: option,
-          height: itemHeight,
-          padding: EdgeInsets.zero,
-          child: SizedBox(
-            width: menuWidth,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 16,
-                    child: isSelected
-                        ? Center(
-                            child: Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF111827),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          )
-                        : null,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF111827),
                   ),
-                  Expanded(
-                    child: Text(
-                      option,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: const Color(0xFF111827),
-                      ),
+                ),
+              ),
+              ...widget.options.map((option) {
+                final isSelected = widget.value == option;
+                return ListTile(
+                  leading: Icon(
+                    isSelected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_off_rounded,
+                    color: isSelected ? _kViolet : const Color(0xFFD1D5DB),
+                    size: 22,
+                  ),
+                  title: Text(
+                    option,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: const Color(0xFF111827),
                     ),
                   ),
-                ],
-              ),
-            ),
+                  onTap: () => Navigator.of(ctx).pop(option),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
           ),
         );
-      }).toList(),
+      },
     );
     if (selected != null) widget.onChanged(selected);
   }
@@ -819,7 +942,6 @@ class _MaterialsFilterDropdownState extends State<_MaterialsFilterDropdown> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      key: _triggerKey,
       onTap: _openMenu,
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -900,120 +1022,74 @@ class _MaterialCard extends StatelessWidget {
     final lc = _levelAccentColor(level);
     final lb = _levelAccentBackground(level);
     final uploadedLabel = _formatMaterialListTimestamp(material.createdAt);
+    final displayTitle = _displayMaterialTitle(material.title);
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Color(0x0A000000),
             blurRadius: 10,
-            offset: const Offset(0, 6),
+            offset: Offset(0, 6),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => MaterialReaderScreen(
-                      materialId: material.id,
-                      initialTitle: material.title,
-                      userId: userId,
-                    ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MaterialReaderScreen(
+                  materialId: material.id,
+                  initialTitle: material.title,
+                  userId: userId,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              },
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFFFF1F2),
-                        border: Border.all(
-                          color: const Color(0xFFFB7185),
-                          width: 1.6,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.insert_drive_file_rounded,
-                        size: 20,
-                        color: Color(0xFFFB7185),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    size: 22,
+                    color: _kViolet,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            material.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF111827),
+                          Expanded(
+                            child: Text(
+                              displayTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF111827),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: lb,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  level,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: lc,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE0EAFF),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    material.materialType,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF8840FE),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                           if (uploadedLabel.isNotEmpty) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(width: 8),
                             Text(
                               uploadedLabel,
                               maxLines: 1,
@@ -1027,21 +1103,68 @@ class _MaterialCard extends StatelessWidget {
                           ],
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: lb,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              level,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: lc,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEDE9FE),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                material.materialType,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _kViolet,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                IconButton(
+                  tooltip: 'Delete material',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                  onPressed: onDelete,
+                ),
+              ],
             ),
           ),
-          IconButton(
-            tooltip: 'Delete material',
-            icon: const Icon(
-              Icons.delete_outline_rounded,
-              color: Color(0xFF9CA3AF),
-            ),
-            onPressed: onDelete,
-          ),
-        ],
+        ),
       ),
     );
   }

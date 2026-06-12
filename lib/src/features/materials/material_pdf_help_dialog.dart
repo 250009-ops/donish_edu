@@ -3,6 +3,40 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/network/api_client.dart';
 
+/// Explains PDF, photo, and write upload options.
+void showMaterialSourcesHelpDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(
+        'Adding materials',
+        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 18),
+      ),
+      content: SingleChildScrollView(
+        child: Text(
+          'Gotcha supports three ways to add reading material:\n\n'
+          'PDF — digital or scanned files. We extract text on the server (OCR when needed). Up to ~30 pages and 30 MB.\n\n'
+          'Photo — take or import page images, crop each page, then we OCR the photos. Up to 30 pages. Clear lighting and tight crops work best.\n\n'
+          'Write — type or paste English text directly. You review and edit before saving.\n\n'
+          'All paths end on a review screen where you can fix text before it appears in Materials.',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            height: 1.45,
+            color: const Color(0xFF374151),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child:
+              Text('Got it', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Explains PDF upload limits and server-side PDF extraction.
 void showPdfMaterialsHelpDialog(BuildContext context) {
   showDialog<void>(
@@ -21,7 +55,7 @@ void showPdfMaterialsHelpDialog(BuildContext context) {
           'May fail or need editing:\n'
           '• Blurry or very low-contrast scans.\n'
           '• Password-protected or corrupted files.\n\n'
-          'Limits: PDF only, up to about 30 pages and 10 MB. Extraction can take 1–2 minutes.',
+          'Limits: PDF only, up to about 30 pages and 30 MB. Extraction can take 1–2 minutes.',
           style: GoogleFonts.inter(
             fontSize: 14,
             height: 1.45,
@@ -44,6 +78,7 @@ void showMaterialUploadError(BuildContext context, Object error) {
   if (error is ApiException) {
     final msg = error.message;
     final noExtractableText = error.code == 'pdf_no_extractable_text' ||
+        error.code == 'image_no_extractable_text' ||
         msg.contains('No readable text') ||
         msg.contains('no text we can read') ||
         msg.contains('could not find readable text');
@@ -66,7 +101,7 @@ void showMaterialUploadError(BuildContext context, Object error) {
           ),
           content: SingleChildScrollView(
             child: Text(
-              'This file is larger than we can accept (about 10 MB). '
+              'This file is larger than we can accept (about 30 MB). '
               'Try a shorter PDF, fewer pages, or export with lower image quality.\n\n'
               'Details: ${error.message}',
               style: GoogleFonts.inter(
@@ -149,6 +184,9 @@ void showMaterialUploadError(BuildContext context, Object error) {
       return;
     }
     if (unreadablePdf) {
+      final body =
+          'The file might be corrupted, password-protected, or not a valid PDF. '
+          'Try re-downloading it or exporting again from the original app.';
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -158,9 +196,7 @@ void showMaterialUploadError(BuildContext context, Object error) {
           ),
           content: SingleChildScrollView(
             child: Text(
-              'The file might be corrupted, password-protected, or not a valid PDF. '
-              'Try re-downloading it or exporting again from the original app.\n\n'
-              'Details: ${error.message}',
+              body,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 height: 1.45,
