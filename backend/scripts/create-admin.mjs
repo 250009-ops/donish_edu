@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAdmin } from "../src/services/adminAuthService.js";
+import { upsertAdmin } from "../src/services/adminAuthService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -15,6 +15,6 @@ if (!email || !password) {
   process.exit(1);
 }
 
-const admin = await createAdmin({ email, password, role });
-console.log("Admin created:", admin);
+const admin = await upsertAdmin({ email, password, role });
+console.log(admin.updated ? "Admin updated:" : "Admin created:", admin);
 console.log("Log in at /admin and run setup-2fa from settings.");

@@ -206,3 +206,20 @@ export async function createAdmin({ email, password, role = "superadmin" }) {
   );
   return rows[0];
 }
+
+/** Create or update password for an admin (idempotent deploy bootstrap). */
+export async function upsertAdmin({ email, password, role = "superadmin" }) {
+  const normalized = email.trim().toLowerCase();
+  const existing = await findAdminByEmail(normalized);
+  const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  if (existing) {
+    await query(
+      `update admin_users set password_hash = $2, role = $3, is_active = true,
+              failed_attempts = 0, locked_until = null where id = $1`,
+      [existing.id, hash, role]
+    );
+    return { id: existing.id, email: normalized, role, updated: true };
+  }
+  const created = await createAdmin({ email: normalized, password, role });
+  return { ...created, updated: false };
+}

@@ -9,8 +9,8 @@ dotenv.config({ path: path.join(backendRoot, ".env") });
 
 const IP = process.env.IP?.trim();
 const PASSWORD = process.env.PASSWORD?.trim();
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@donish.live";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "GotchaAdmin2026!";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "serkinov393@gmail.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Sarvarbek_12345!";
 
 function run(cmd) {
   return new Promise((resolve, reject) => {
