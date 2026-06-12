@@ -18,17 +18,18 @@ import {
 } from "../services/appArtifactsService.js";
 import { storeInboundMessage } from "../services/supportService.js";
 import { buildSubscriptionPayload } from "../services/subscriptionService.js";
+import { onUserTurn, replyTracked } from "./botMessaging.js";
 import { t, resolveLang } from "./i18n/index.js";
 import {
-  downloadPicker,
-  emailSkipKeyboard,
-  feedbackDoneKeyboard,
-  languagePicker,
-  mainMenu,
-  phoneRequestKeyboard,
-  removeKeyboard,
-  urlButton
+  downloadReply,
+  emailSkipReply,
+  feedbackDoneReply,
+  languageReply,
+  mainMenuReply,
+  phoneRequestReply,
+  removeKeyboard
 } from "./keyboards.js";
+import { matchesKey, parseLanguageLabel } from "./menuMatch.js";
 import { clearSessionData, getSession, setSession } from "./sessionStore.js";
 
 export const STATES = {
@@ -42,7 +43,9 @@ export const STATES = {
   EDIT_NAME: "edit_name",
   EDIT_EMAIL: "edit_email",
   EDIT_PHONE: "edit_phone",
-  SUPPORT_CHAT: "support_chat"
+  SUPPORT_CHAT: "support_chat",
+  PICK_LANGUAGE: "pick_language",
+  DOWNLOAD_MENU: "download_menu"
 };
 
 function isAdmin(telegramId) {
@@ -51,13 +54,6 @@ function isAdmin(telegramId) {
 
 function langOf(session, ctx) {
   return resolveLang(session.language, ctx.from?.language_code);
-}
-
-async function persistSession(chatId, patch) {
-  const ok = await setSession(chatId, patch);
-  if (!ok) {
-    throw new Error("session_persist_failed");
-  }
 }
 
 /**
@@ -87,7 +83,50 @@ export function attachDonishBotHandlers(bot, options) {
     : setSession;
 
   async function showMenu(ctx, lang) {
-    await ctx.reply(t(lang, "menu.title"), mainMenu(lang));
+    await replyTracked(ctx, getSess, setSess, t(lang, "menu.title"), mainMenuReply(lang));
+  }
+
+  async function showDownloadMenu(ctx, lang) {
+    await setSess(ctx.chat.id, { step: STATES.DOWNLOAD_MENU });
+    await replyTracked(
+      ctx,
+      getSess,
+      setSess,
+      t(lang, "download.pick", { app: APP_DISPLAY_NAME }),
+      downloadReply(lang)
+    );
+  }
+
+  async function handleAndroidDownload(ctx, lang) {
+    const art = await getCurrentArtifact("android");
+    if (art?.file_id) {
+      await ctx.replyWithDocument(art.file_id, {
+        caption: t(lang, "download.android_sent", { app: APP_DISPLAY_NAME }),
+        ...mainMenuReply(lang)
+      });
+    } else if (config.download.apkUrlFallback) {
+      await ctx.reply(
+        `${t(lang, "download.android_missing")}\n\n${config.download.apkUrlFallback}`,
+        mainMenuReply(lang)
+      );
+    } else {
+      await ctx.reply(t(lang, "download.android_missing"), mainMenuReply(lang));
+    }
+    await setSess(ctx.chat.id, { step: STATES.IDLE });
+  }
+
+  async function handleIosDownload(ctx, lang) {
+    const art = await getCurrentArtifact("ios");
+    const url = art?.store_url || config.download.iosStoreUrl;
+    if (url) {
+      await ctx.reply(
+        `${t(lang, "download.ios_link", { app: APP_DISPLAY_NAME })}\n\n${url}`,
+        mainMenuReply(lang)
+      );
+    } else {
+      await ctx.reply(t(lang, "download.ios_coming"), mainMenuReply(lang));
+    }
+    await setSess(ctx.chat.id, { step: STATES.IDLE });
   }
 
   async function handleStart(ctx) {
@@ -101,35 +140,35 @@ export function attachDonishBotHandlers(bot, options) {
     if (look.registered) {
       const sess = await getSess(chatId);
       const lang = resolveLang(look.language || sess.language, ctx.from?.language_code);
-      await setSess(chatId, { step: STATES.IDLE, language: lang });
+      await setSess(chatId, { step: STATES.IDLE, language: lang, data: { bot_msg_ids: [] } });
       const name = look.full_name;
       const welcome = name
         ? t(lang, "welcome.back", { app: APP_DISPLAY_NAME, name })
         : t(lang, "welcome.back_no_name", { app: APP_DISPLAY_NAME });
-      await ctx.reply(
-        `${welcome}\n\n${t(lang, "account.id", { id: look.telegram_id })}`,
-        mainMenu(lang)
-      );
+      let text = `${welcome}\n\n${t(lang, "account.id", { id: look.telegram_id })}`;
       if (!look.profile_complete) {
-        await ctx.reply(t(lang, "account.incomplete"));
+        text += `\n\n${t(lang, "account.incomplete")}`;
       }
+      await replyTracked(ctx, getSess, setSess, text, mainMenuReply(lang));
       return;
     }
 
     await setSess(chatId, {
       step: STATES.ONBOARD_LANGUAGE,
-      data: {},
+      data: { bot_msg_ids: [] },
       language: null
     });
-    await ctx.reply(
-      t("uz", "welcome.new", { app: APP_DISPLAY_NAME }) +
-        "\n\n" +
-        t("uz", "onboarding.pick_language"),
-      languagePicker()
+    await replyTracked(
+      ctx,
+      getSess,
+      setSess,
+      `${t("uz", "welcome.new", { app: APP_DISPLAY_NAME })}\n\n${t("uz", "onboarding.pick_language")}`,
+      languageReply("uz")
     );
   }
 
   bot.start(handleStart);
+
   bot.command("menu", async (ctx) => {
     const sess = await getSess(ctx.chat.id);
     const lang = langOf(sess, ctx);
@@ -142,29 +181,36 @@ export function attachDonishBotHandlers(bot, options) {
     const lang = langOf(sess, ctx);
     await clearSessionData(ctx.chat.id);
     await setSess(ctx.chat.id, { step: STATES.IDLE, language: sess.language });
-    await ctx.reply(t(lang, "menu.back"), removeKeyboard());
-    await showMenu(ctx, lang);
+    await replyTracked(ctx, getSess, setSess, t(lang, "menu.back"), mainMenuReply(lang));
   });
 
   bot.command("download", async (ctx) => {
     const sess = await getSess(ctx.chat.id);
     const lang = langOf(sess, ctx);
-    await ctx.reply(t(lang, "download.pick", { app: APP_DISPLAY_NAME }), downloadPicker(lang));
+    await showDownloadMenu(ctx, lang);
   });
 
   bot.command("account", async (ctx) => {
-    await handleAccount(ctx, getSess, setSess);
+    await handleAccount(ctx, getSess, setSess, replyTracked);
   });
 
   bot.command("language", async (ctx) => {
     const sess = await getSess(ctx.chat.id);
     const lang = langOf(sess, ctx);
-    await ctx.reply(t(lang, "onboarding.pick_language"), languagePicker());
+    await setSess(ctx.chat.id, { step: STATES.PICK_LANGUAGE });
+    await replyTracked(
+      ctx,
+      getSess,
+      setSess,
+      t(lang, "onboarding.pick_language"),
+      languageReply(lang, { withBack: true })
+    );
   });
 
   bot.command("help", async (ctx) => {
     const sess = await getSess(ctx.chat.id);
-    await ctx.reply(t(langOf(sess, ctx), "help.text"));
+    const lang = langOf(sess, ctx);
+    await replyTracked(ctx, getSess, setSess, t(lang, "help.text"), mainMenuReply(lang));
   });
 
   bot.command("reset_password", async (ctx) => {
@@ -173,11 +219,14 @@ export function attachDonishBotHandlers(bot, options) {
     const lang = langOf(sess, ctx);
     const look = await lookupTelegramUser(chatId);
     if (!look.ok || !look.registered) {
-      await ctx.reply(t(lang, "idle.hint"));
+      await replyTracked(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
       return;
     }
     await setSess(chatId, { step: STATES.AWAITING_NEW_PASSWORD });
-    await ctx.reply(
+    await replyTracked(
+      ctx,
+      getSess,
+      setSess,
       t(lang, "reset.prompt", { min: MIN_PASSWORD_LEN }),
       removeKeyboard()
     );
@@ -205,168 +254,10 @@ export function attachDonishBotHandlers(bot, options) {
     await ctx.reply(`iOS link saved${version ? ` (v${version})` : ""}.`);
   });
 
-  bot.on("callback_query", async (ctx) => {
-    try {
-      const data = ctx.callbackQuery?.data || "";
-      const chatId = ctx.chat.id;
-      const sess = await getSess(chatId);
-      let lang = langOf(sess, ctx);
-
-      if (data.startsWith("lang:")) {
-        const picked = data.slice(5);
-        if (!["uz", "ru", "en"].includes(picked)) return ctx.answerCbQuery();
-        lang = picked;
-        const look = await lookupTelegramUser(chatId);
-        if (look.registered) {
-          await updateTelegramUserProfile(chatId, { language: picked });
-          await setSess(chatId, { step: STATES.IDLE, language: picked });
-          await ctx.answerCbQuery();
-          await ctx.reply(t(lang, "lang.changed"), mainMenu(lang));
-          return;
-        }
-        await setSess(chatId, {
-          step: STATES.ONBOARD_NAME,
-          language: picked,
-          data: sess.data
-        });
-        await ctx.answerCbQuery();
-        await ctx.editMessageText(t(lang, "onboarding.ask_name"));
-        return;
-      }
-
-      if (data === "menu:main") {
-        await setSess(chatId, { step: STATES.IDLE });
-        await ctx.answerCbQuery();
-        await showMenu(ctx, lang);
-        return;
-      }
-
-      if (data === "menu:download") {
-        await ctx.answerCbQuery();
-        await ctx.reply(t(lang, "download.pick", { app: APP_DISPLAY_NAME }), downloadPicker(lang));
-        return;
-      }
-
-      if (data === "download:android") {
-        await ctx.answerCbQuery();
-        const art = await getCurrentArtifact("android");
-        if (art?.file_id) {
-          await ctx.replyWithDocument(art.file_id, {
-            caption: t(lang, "download.android_sent", { app: APP_DISPLAY_NAME })
-          });
-        } else if (config.download.apkUrlFallback) {
-          await ctx.reply(
-            t(lang, "download.android_missing"),
-            urlButton("Download APK", config.download.apkUrlFallback)
-          );
-        } else {
-          await ctx.reply(t(lang, "download.android_missing"));
-        }
-        return;
-      }
-
-      if (data === "download:ios") {
-        await ctx.answerCbQuery();
-        const art = await getCurrentArtifact("ios");
-        const url = art?.store_url || config.download.iosStoreUrl;
-        if (url) {
-          await ctx.reply(
-            t(lang, "download.ios_link", { app: APP_DISPLAY_NAME }),
-            urlButton("App Store", url)
-          );
-        } else {
-          await ctx.reply(t(lang, "download.ios_coming"));
-        }
-        return;
-      }
-
-      if (data === "menu:account") {
-        await ctx.answerCbQuery();
-        await handleAccount(ctx, getSess, setSess);
-        return;
-      }
-
-      if (data === "menu:feedback") {
-        await setSess(chatId, { step: STATES.SUPPORT_CHAT });
-        await ctx.answerCbQuery();
-        await ctx.reply(t(lang, "feedback.prompt"), feedbackDoneKeyboard(lang));
-        return;
-      }
-
-      if (data === "feedback:done") {
-        await setSess(chatId, { step: STATES.IDLE });
-        await ctx.answerCbQuery();
-        await showMenu(ctx, lang);
-        return;
-      }
-
-      if (data === "menu:reset") {
-        await ctx.answerCbQuery();
-        const look = await lookupTelegramUser(chatId);
-        if (!look.registered) {
-          await ctx.reply(t(lang, "idle.hint"));
-          return;
-        }
-        await setSess(chatId, { step: STATES.AWAITING_NEW_PASSWORD });
-        await ctx.reply(t(lang, "reset.prompt", { min: MIN_PASSWORD_LEN }), removeKeyboard());
-        return;
-      }
-
-      if (data === "menu:subscription") {
-        await ctx.answerCbQuery();
-        const look = await lookupTelegramUser(chatId);
-        if (!look.registered) {
-          await ctx.reply(t(lang, "idle.hint"));
-          return;
-        }
-        const sub = await buildSubscriptionPayload(look.user_id);
-        const plan = sub?.is_premium
-          ? t(lang, "subscription.premium")
-          : t(lang, "subscription.free");
-        await ctx.reply(plan);
-        return;
-      }
-
-      if (data === "menu:lang") {
-        await ctx.answerCbQuery();
-        await ctx.reply(t(lang, "onboarding.pick_language"), languagePicker());
-        return;
-      }
-
-      if (data === "menu:help") {
-        await ctx.answerCbQuery();
-        await ctx.reply(t(lang, "help.text"));
-        return;
-      }
-
-      if (data === "onboard:skip_email") {
-        await setSess(chatId, {
-          step: STATES.ONBOARD_PASSWORD,
-          mergeData: true,
-          data: { ...sess.data, email: null }
-        });
-        await ctx.answerCbQuery();
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
-        await ctx.reply(
-          t(lang, "onboarding.ask_password", { min: MIN_PASSWORD_LEN }),
-          removeKeyboard()
-        );
-        return;
-      }
-
-      await ctx.answerCbQuery();
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("callback_query:", err);
-      try {
-        await ctx.answerCbQuery();
-      } catch (_) {}
-    }
-  });
-
   bot.on("contact", async (ctx) => {
     try {
       const chatId = ctx.chat.id;
+      await onUserTurn(ctx, getSess, setSess);
       const sess = await getSess(chatId);
       const lang = langOf(sess, ctx);
       if (sess.step !== STATES.ONBOARD_PHONE && sess.step !== STATES.EDIT_PHONE) return;
@@ -374,15 +265,14 @@ export function attachDonishBotHandlers(bot, options) {
       const contact = ctx.message.contact;
       const phone = normalizePhoneE164(contact?.phone_number || "");
       if (!phone) {
-        await ctx.reply(t(lang, "onboarding.invalid_phone"));
+        await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.invalid_phone"), phoneRequestReply(lang));
         return;
       }
 
       if (sess.step === STATES.EDIT_PHONE) {
         await updateTelegramUserProfile(chatId, { phone_e164: phone });
         await setSess(chatId, { step: STATES.IDLE });
-        await ctx.reply(t(lang, "lang.changed"), removeKeyboard());
-        await showMenu(ctx, lang);
+        await replyTracked(ctx, getSess, setSess, t(lang, "lang.changed"), mainMenuReply(lang));
         return;
       }
 
@@ -391,10 +281,7 @@ export function attachDonishBotHandlers(bot, options) {
         mergeData: true,
         data: { phone_e164: phone }
       });
-      await ctx.reply(t(lang, "onboarding.ask_email"), {
-        ...emailSkipKeyboard(lang),
-        ...removeKeyboard()
-      });
+      await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.ask_email"), emailSkipReply(lang));
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("contact handler:", err);
@@ -433,10 +320,78 @@ export function attachDonishBotHandlers(bot, options) {
       const message = ctx.message?.text?.trim() ?? "";
       if (message.startsWith("/")) return;
 
+      await onUserTurn(ctx, getSess, setSess);
+
       const sess = await getSess(chatId);
-      const lang = langOf(sess, ctx);
+      let lang = langOf(sess, ctx);
+
+      if (matchesKey(message, "menu.back")) {
+        await setSess(chatId, { step: STATES.IDLE });
+        await showMenu(ctx, lang);
+        return;
+      }
+
+      if (sess.step === STATES.ONBOARD_LANGUAGE) {
+        const picked = parseLanguageLabel(message);
+        if (!picked) {
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t("uz", "onboarding.pick_language"),
+            languageReply("uz")
+          );
+          return;
+        }
+        lang = picked;
+        await setSess(chatId, {
+          step: STATES.ONBOARD_NAME,
+          language: picked,
+          mergeData: true,
+          data: sess.data
+        });
+        await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.ask_name"), removeKeyboard());
+        return;
+      }
+
+      if (sess.step === STATES.PICK_LANGUAGE) {
+        const picked = parseLanguageLabel(message);
+        if (!picked) {
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t(lang, "onboarding.pick_language"),
+            languageReply(lang, { withBack: true })
+          );
+          return;
+        }
+        await updateTelegramUserProfile(chatId, { language: picked });
+        lang = picked;
+        await setSess(chatId, { step: STATES.IDLE, language: picked });
+        await replyTracked(ctx, getSess, setSess, t(lang, "lang.changed"), mainMenuReply(lang));
+        return;
+      }
+
+      if (sess.step === STATES.DOWNLOAD_MENU) {
+        if (matchesKey(message, "download.android")) {
+          await handleAndroidDownload(ctx, lang);
+          return;
+        }
+        if (matchesKey(message, "download.ios")) {
+          await handleIosDownload(ctx, lang);
+          return;
+        }
+        await showDownloadMenu(ctx, lang);
+        return;
+      }
 
       if (sess.step === STATES.SUPPORT_CHAT) {
+        if (matchesKey(message, "feedback.done")) {
+          await setSess(chatId, { step: STATES.IDLE });
+          await showMenu(ctx, lang);
+          return;
+        }
         if (!message) return;
         const look = await lookupTelegramUser(chatId);
         const { query: dbQuery } = await import("../db/pool.js");
@@ -451,9 +406,12 @@ export function attachDonishBotHandlers(bot, options) {
           userId: look.registered ? look.user_id : null,
           body: message.slice(0, 4000)
         });
-        await ctx.reply(
+        await replyTracked(
+          ctx,
+          getSess,
+          setSess,
           prior === 0 ? t(lang, "feedback.ack") : t(lang, "feedback.sent"),
-          feedbackDoneKeyboard(lang)
+          feedbackDoneReply(lang)
         );
         return;
       }
@@ -461,11 +419,14 @@ export function attachDonishBotHandlers(bot, options) {
       if (sess.step === STATES.AWAITING_NEW_PASSWORD) {
         const resetRes = await resetTelegramUserPassword(chatId, message);
         if (resetRes.ok) {
-          await ctx.reply(
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
             t(lang, "reset.done", { id: resetRes.telegram_id ?? chatId })
           );
         } else {
-          await ctx.reply(resetRes.error || t(lang, "error.generic"));
+          await replyTracked(ctx, getSess, setSess, resetRes.error || t(lang, "error.generic"));
         }
         await setSess(chatId, { step: STATES.IDLE });
         await showMenu(ctx, lang);
@@ -475,7 +436,7 @@ export function attachDonishBotHandlers(bot, options) {
       if (sess.step === STATES.ONBOARD_NAME) {
         const err = validateName(message);
         if (err) {
-          await ctx.reply(t(lang, "onboarding.invalid_name"));
+          await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.invalid_name"), removeKeyboard());
           return;
         }
         await setSess(chatId, {
@@ -483,18 +444,30 @@ export function attachDonishBotHandlers(bot, options) {
           mergeData: true,
           data: { full_name: message.trim() }
         });
-        await ctx.reply(t(lang, "onboarding.ask_phone"), phoneRequestKeyboard(lang));
+        await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.ask_phone"), phoneRequestReply(lang));
         return;
       }
 
       if (sess.step === STATES.ONBOARD_PHONE) {
-        if (message === t(lang, "btn.enter_phone")) {
-          await ctx.reply(t(lang, "onboarding.invalid_phone"));
+        if (matchesKey(message, "btn.enter_phone")) {
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t(lang, "onboarding.invalid_phone"),
+            phoneRequestReply(lang)
+          );
           return;
         }
         const phone = normalizePhoneE164(message);
         if (!phone) {
-          await ctx.reply(t(lang, "onboarding.invalid_phone"));
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t(lang, "onboarding.invalid_phone"),
+            phoneRequestReply(lang)
+          );
           return;
         }
         await setSess(chatId, {
@@ -502,15 +475,12 @@ export function attachDonishBotHandlers(bot, options) {
           mergeData: true,
           data: { phone_e164: phone }
         });
-        await ctx.reply(t(lang, "onboarding.ask_email"), {
-          ...emailSkipKeyboard(lang),
-          ...removeKeyboard()
-        });
+        await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.ask_email"), emailSkipReply(lang));
         return;
       }
 
       if (sess.step === STATES.ONBOARD_EMAIL) {
-        if (message.toLowerCase() === t(lang, "onboarding.skip").toLowerCase()) {
+        if (matchesKey(message, "onboarding.skip")) {
           await setSess(chatId, {
             step: STATES.ONBOARD_PASSWORD,
             mergeData: true,
@@ -519,7 +489,7 @@ export function attachDonishBotHandlers(bot, options) {
         } else {
           const err = validateEmail(message);
           if (err) {
-            await ctx.reply(t(lang, "onboarding.invalid_email"));
+            await replyTracked(ctx, getSess, setSess, t(lang, "onboarding.invalid_email"), emailSkipReply(lang));
             return;
           }
           await setSess(chatId, {
@@ -528,7 +498,10 @@ export function attachDonishBotHandlers(bot, options) {
             data: { email: message.trim().toLowerCase() }
           });
         }
-        await ctx.reply(
+        await replyTracked(
+          ctx,
+          getSess,
+          setSess,
           t(lang, "onboarding.ask_password", { min: MIN_PASSWORD_LEN }),
           removeKeyboard()
         );
@@ -545,18 +518,21 @@ export function attachDonishBotHandlers(bot, options) {
         const createRes = await createTelegramUser(chatId, message, profile);
         if (createRes.ok) {
           const tid = createRes.telegram_id ?? chatId;
-          await ctx.reply(
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
             t(lang, "onboarding.done", {
               app: APP_DISPLAY_NAME,
               id: tid,
               name: profile.full_name
             }),
-            downloadPicker(lang)
+            mainMenuReply(lang)
           );
         } else if (createRes.status === 409) {
-          await ctx.reply(t(lang, "idle.hint"));
+          await replyTracked(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
         } else {
-          await ctx.reply(createRes.error || t(lang, "error.generic"));
+          await replyTracked(ctx, getSess, setSess, createRes.error || t(lang, "error.generic"));
         }
         await setSess(chatId, { step: STATES.IDLE, data: {} });
         return;
@@ -573,12 +549,77 @@ export function attachDonishBotHandlers(bot, options) {
         if (sess.step === STATES.EDIT_PHONE) patch.phone_e164 = message;
         const res = await updateTelegramUserProfile(chatId, patch);
         await setSess(chatId, { step: STATES.IDLE });
-        await ctx.reply(res.ok ? t(lang, "lang.changed") : res.error || t(lang, "error.generic"));
-        await showMenu(ctx, lang);
+        await replyTracked(
+          ctx,
+          getSess,
+          setSess,
+          res.ok ? t(lang, "lang.changed") : res.error || t(lang, "error.generic"),
+          mainMenuReply(lang)
+        );
         return;
       }
 
-      await ctx.reply(t(lang, "idle.hint"), mainMenu(lang));
+      if (sess.step === STATES.IDLE) {
+        if (matchesKey(message, "menu.download")) {
+          await showDownloadMenu(ctx, lang);
+          return;
+        }
+        if (matchesKey(message, "menu.account")) {
+          await handleAccount(ctx, getSess, setSess, replyTracked);
+          return;
+        }
+        if (matchesKey(message, "menu.feedback")) {
+          await setSess(chatId, { step: STATES.SUPPORT_CHAT });
+          await replyTracked(ctx, getSess, setSess, t(lang, "feedback.prompt"), feedbackDoneReply(lang));
+          return;
+        }
+        if (matchesKey(message, "menu.reset")) {
+          const look = await lookupTelegramUser(chatId);
+          if (!look.registered) {
+            await replyTracked(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
+            return;
+          }
+          await setSess(chatId, { step: STATES.AWAITING_NEW_PASSWORD });
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t(lang, "reset.prompt", { min: MIN_PASSWORD_LEN }),
+            removeKeyboard()
+          );
+          return;
+        }
+        if (matchesKey(message, "menu.subscription")) {
+          const look = await lookupTelegramUser(chatId);
+          if (!look.registered) {
+            await replyTracked(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
+            return;
+          }
+          const sub = await buildSubscriptionPayload(look.user_id);
+          const plan = sub?.is_premium
+            ? t(lang, "subscription.premium")
+            : t(lang, "subscription.free");
+          await replyTracked(ctx, getSess, setSess, plan, mainMenuReply(lang));
+          return;
+        }
+        if (matchesKey(message, "menu.language")) {
+          await setSess(chatId, { step: STATES.PICK_LANGUAGE });
+          await replyTracked(
+            ctx,
+            getSess,
+            setSess,
+            t(lang, "onboarding.pick_language"),
+            languageReply(lang, { withBack: true })
+          );
+          return;
+        }
+        if (matchesKey(message, "menu.help")) {
+          await replyTracked(ctx, getSess, setSess, t(lang, "help.text"), mainMenuReply(lang));
+          return;
+        }
+      }
+
+      await replyTracked(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("bot text handler:", err);
@@ -597,13 +638,13 @@ export function attachDonishBotHandlers(bot, options) {
   ]).catch(() => {});
 }
 
-async function handleAccount(ctx, getSess, setSess) {
+async function handleAccount(ctx, getSess, setSess, replyTrackedFn) {
   const chatId = ctx.chat.id;
   const sess = await getSess(chatId);
   const lang = resolveLang(sess.language, ctx.from?.language_code);
   const look = await lookupTelegramUser(chatId);
   if (!look.ok || !look.registered) {
-    await ctx.reply(t(lang, "idle.hint"));
+    await replyTrackedFn(ctx, getSess, setSess, t(lang, "idle.hint"), mainMenuReply(lang));
     return;
   }
   const lines = [
@@ -614,5 +655,5 @@ async function handleAccount(ctx, getSess, setSess) {
     t(lang, "account.phone", { phone: look.phone_e164 || "—" }),
     t(lang, "account.language", { lang: look.language || "uz" })
   ];
-  await ctx.reply(lines.join("\n"), mainMenu(lang));
+  await replyTrackedFn(ctx, getSess, setSess, lines.join("\n"), mainMenuReply(lang));
 }

@@ -11,7 +11,9 @@ const VALID_STEPS = new Set([
   "edit_name",
   "edit_email",
   "edit_phone",
-  "support_chat"
+  "support_chat",
+  "pick_language",
+  "download_menu"
 ]);
 
 /** @param {number} telegramId */
