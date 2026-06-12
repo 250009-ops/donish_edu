@@ -24,6 +24,8 @@ function randomHex(byteLength) {
 const jwtSecret = randomHex(32);
 /** Min 16 chars for production bot check; 48 hex = 24 bytes. */
 const botSecret = randomHex(24);
+/** Min 16 chars for production webhook check; 48 hex = 24 bytes. */
+const webhookSecret = randomHex(24);
 
 let content = "";
 if (fs.existsSync(envPath)) {
@@ -46,6 +48,9 @@ function setOrAppend(src, key, value) {
 let next = content;
 next = setOrAppend(next, "JWT_SECRET", jwtSecret);
 next = setOrAppend(next, "BOT_SHARED_SECRET", botSecret);
+next = setOrAppend(next, "TELEGRAM_WEBHOOK_SECRET", webhookSecret);
+next = setOrAppend(next, "ADMIN_JWT_SECRET", randomHex(32));
+next = setOrAppend(next, "ADMIN_TOTP_ENC_KEY", randomHex(32));
 
 fs.writeFileSync(envPath, next, "utf8");
 
@@ -60,8 +65,12 @@ console.log(`JWT_SECRET=${jwtSecret}`);
 // eslint-disable-next-line no-console
 console.log(`BOT_SHARED_SECRET=${botSecret}`);
 // eslint-disable-next-line no-console
+console.log(`TELEGRAM_WEBHOOK_SECRET=${webhookSecret}`);
+// eslint-disable-next-line no-console
 console.log("");
 // eslint-disable-next-line no-console
 console.log(
   "Use the same BOT_SHARED_SECRET where the Telegram bot runs (e.g. BOT_SHARED_SECRET in process env)."
 );
+// eslint-disable-next-line no-console
+console.log("After updating .env on EC2, run: npm run webhook:set");

@@ -7,3 +7,4 @@
 \i migration_flashcard_mastered.sql
 \i migration_scale_indexes.sql
 \i migration_subscriptions_devices.sql
+\i migration_bot_admin_20250612.sql

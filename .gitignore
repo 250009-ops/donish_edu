@@ -48,6 +48,10 @@ app.*.map.json
 /backend/.env
 /backend/node_modules/
 
+# Admin panel
+/admin-panel/node_modules/
+/admin-panel/dist/
+
 # Local Android platform-tools fallback (see run_on_device.bat)
 _platform-tools-new/
 _platform-tools-latest.zip

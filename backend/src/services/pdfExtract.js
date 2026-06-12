@@ -104,6 +104,31 @@ async function extractWithTesseract(pdfPath, workDir, maxPages) {
  * @param {Buffer} buffer
  * @param {{ maxPages: number, maxBytes: number }} limits
  */
+function needsBetterExtraction(text, numPages) {
+  const pages = Math.max(1, numPages);
+  const charsPerPage = text.length / pages;
+  return (
+    text.length < MIN_CHARS_PER_PAGE * pages ||
+    charsPerPage < MIN_CHARS_PER_PAGE
+  );
+}
+
+async function readPageCountFromPdfInfo(pdfPath, fallback = 1) {
+  try {
+    const info = await execFileAsync("pdfinfo", [pdfPath], {
+      timeout: 15_000,
+      maxBuffer: 1024 * 1024
+    });
+    const pagesMatch = String(info.stdout || "").match(/Pages:\s+(\d+)/i);
+    if (pagesMatch) {
+      return parseInt(pagesMatch[1], 10) || fallback;
+    }
+  } catch {
+    /* optional */
+  }
+  return fallback;
+}
+
 export async function extractTextFromPdf(buffer, limits) {
   if (!buffer?.length) {
     throw new Error("PDF buffer is empty.");
@@ -114,59 +139,79 @@ export async function extractTextFromPdf(buffer, limits) {
     );
   }
 
-  let parsed;
+  let text = "";
+  let numPages = 1;
+  let pdfParseFailed = false;
+
   try {
-    parsed = await extractWithPdfParse(buffer);
+    const parsed = await extractWithPdfParse(buffer);
+    text = parsed.text;
+    numPages = parsed.numPages;
   } catch (err) {
-    throw new PdfExtractFailedError(
-      err instanceof Error ? err.message : "Invalid PDF."
+    pdfParseFailed = true;
+    // eslint-disable-next-line no-console
+    console.warn(
+      "pdf-parse failed, trying poppler/OCR:",
+      err instanceof Error ? err.message : err
     );
   }
 
-  let { text, numPages } = parsed;
-  if (numPages > limits.maxPages) {
+  if (!text.length || needsBetterExtraction(text, numPages)) {
+    const workDir = await mkdtemp(join(tmpdir(), "donish-pdf-"));
+    const pdfPath = join(workDir, "input.pdf");
+    let popplerWorked = false;
+    try {
+      await writeFile(pdfPath, buffer);
+
+      if (pdfParseFailed || numPages <= 1) {
+        numPages = await readPageCountFromPdfInfo(pdfPath, numPages);
+      }
+
+      if (numPages > limits.maxPages) {
+        throw new Error(
+          `This PDF has about ${numPages} pages. Please upload a PDF with at most ${limits.maxPages} pages.`
+        );
+      }
+
+      try {
+        const poppler = await extractWithPdftotext(
+          pdfPath,
+          workDir,
+          limits.maxPages
+        );
+        popplerWorked = true;
+        if (poppler.text.length > text.length) {
+          text = poppler.text;
+          numPages = poppler.numPages;
+        }
+      } catch (popErr) {
+        // eslint-disable-next-line no-console
+        console.warn("pdftotext failed:", popErr?.message || popErr);
+      }
+
+      if (needsBetterExtraction(text, numPages)) {
+        try {
+          const ocr = await extractWithTesseract(pdfPath, workDir, limits.maxPages);
+          if (ocr.text.length > text.length) {
+            text = ocr.text;
+            numPages = ocr.numPages;
+          }
+        } catch (ocrErr) {
+          // eslint-disable-next-line no-console
+          console.warn("tesseract failed:", ocrErr?.message || ocrErr);
+        }
+      }
+
+      if (pdfParseFailed && !text.length && !popplerWorked) {
+        throw new PdfExtractFailedError();
+      }
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  } else if (numPages > limits.maxPages) {
     throw new Error(
       `This PDF has about ${numPages} pages. Please upload a PDF with at most ${limits.maxPages} pages.`
     );
-  }
-
-  const charsPerPage = text.length / Math.max(1, numPages);
-  if (text.length >= MIN_CHARS_PER_PAGE * numPages && charsPerPage >= MIN_CHARS_PER_PAGE) {
-    return { contentText: text, numPages };
-  }
-
-  const workDir = await mkdtemp(join(tmpdir(), "donish-pdf-"));
-  const pdfPath = join(workDir, "input.pdf");
-  try {
-    await writeFile(pdfPath, buffer);
-
-    try {
-      const poppler = await extractWithPdftotext(pdfPath, workDir, limits.maxPages);
-      if (poppler.text.length > text.length) {
-        text = poppler.text;
-        numPages = poppler.numPages;
-      }
-    } catch {
-      /* pdftotext optional */
-    }
-
-    const charsAfterPoppler = text.length / Math.max(1, numPages);
-    if (
-      text.length < MIN_CHARS_PER_PAGE * numPages ||
-      charsAfterPoppler < MIN_CHARS_PER_PAGE
-    ) {
-      try {
-        const ocr = await extractWithTesseract(pdfPath, workDir, limits.maxPages);
-        if (ocr.text.length > text.length) {
-          text = ocr.text;
-          numPages = ocr.numPages;
-        }
-      } catch {
-        /* tesseract optional */
-      }
-    }
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
 
   if (numPages > limits.maxPages) {

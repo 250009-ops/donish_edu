@@ -70,13 +70,25 @@ botRouter.post(
   botCreateUserLimiter,
   requireBotSharedSecret,
   async (req, res) => {
-    const { telegram_id, password } = req.body || {};
+    const {
+      telegram_id,
+      password,
+      full_name,
+      email,
+      phone_e164,
+      language
+    } = req.body || {};
     const tid =
       telegram_id !== undefined && telegram_id !== null
         ? Number(telegram_id)
         : NaN;
 
-    const result = await createTelegramUser(tid, password);
+    const result = await createTelegramUser(tid, password, {
+      full_name,
+      email,
+      phone_e164,
+      language
+    });
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }

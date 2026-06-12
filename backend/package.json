@@ -14,14 +14,19 @@
     "webhook:info": "node scripts/set-telegram-webhook.mjs --info",
     "webhook:fix": "node scripts/fix-telegram-webhook.mjs",
     "env:audit": "node scripts/audit-env.mjs",
+    "env:webhook-secret": "node scripts/ensure-webhook-secret.mjs",
     "db:export-supabase": "node scripts/export-supabase.mjs",
     "db:import": "node scripts/import-postgres.mjs",
     "deploy:website": "node scripts/vps-sync-website.mjs",
     "finish:dns": "node scripts/vps-finish-dns.mjs",
     "deploy:vps": "node scripts/vps-deploy.mjs",
-    "go-live": "node scripts/vps-go-live.mjs"
+    "go-live": "node scripts/vps-go-live.mjs",
+    "admin:create": "node scripts/create-admin.mjs",
+    "admin:build": "cd ../admin-panel && npm install && npm run build"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "otplib": "^12.0.1",
     "axios": "^1.7.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -33,7 +38,8 @@
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^2.4.5",
     "pg": "^8.21.0",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.48.0",

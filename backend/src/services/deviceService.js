@@ -1,5 +1,6 @@
 import { query } from "../db/pool.js";
 import { config } from "../config.js";
+import { getEffectiveLimits } from "./limitsService.js";
 
 const DEVICE_ID_RE = /^[a-zA-Z0-9_-]{8,128}$/;
 
@@ -52,12 +53,14 @@ export async function ensureDeviceSlot(userId, deviceId, deviceLabel) {
     [userId]
   );
   const count = countRows[0]?.n ?? 0;
-  if (count >= config.maxDevicesPerUser) {
+  const limits = await getEffectiveLimits(userId);
+  const maxDevices = limits.maxDevicesPerUser;
+  if (count >= maxDevices) {
     const devices = await listUserDevices(userId);
     return {
       ok: false,
       code: "device_limit_reached",
-      message: `This account is already active on ${config.maxDevicesPerUser} devices. Log out on another device or revoke other devices from your profile.`,
+      message: `This account is already active on ${maxDevices} devices. Log out on another device or revoke other devices from your profile.`,
       devices
     };
   }
@@ -89,6 +92,15 @@ export async function revokeOtherDevices(userId, keepDeviceId) {
     `delete from user_devices
      where user_id = $1::uuid and device_id <> $2`,
     [userId, keepDeviceId]
+  );
+  return rowCount;
+}
+
+/** Signs out every device (e.g. after password reset). */
+export async function revokeAllUserDevices(userId) {
+  const { rowCount } = await query(
+    `delete from user_devices where user_id = $1::uuid`,
+    [userId]
   );
   return rowCount;
 }

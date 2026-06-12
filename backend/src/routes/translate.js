@@ -9,6 +9,7 @@ import {
   consumeTranslateQuota
 } from "../middlewares/planMiddleware.js";
 import { config } from "../config.js";
+import { recordOpenAiUsage } from "../services/openaiUsageService.js";
 import { translateLimiter } from "../middlewares/rateLimits.js";
 import {
   getUserWordCache,
@@ -109,10 +110,11 @@ async function requestTranslationPair(normalizedWord, normalizedContext) {
     '- Do not include explanations.\n' +
     '- Output strictly as JSON: {"translation_context_uz":"...","translation_base_uz":"..."}';
 
+  const model = "gpt-4.1-mini";
   const response = await axios.post(
     "https://api.openai.com/v1/chat/completions",
     {
-      model: "gpt-4.1-mini",
+      model,
       temperature: 0,
       messages: [
         { role: "system", content: systemPrompt },
@@ -128,8 +130,13 @@ async function requestTranslationPair(normalizedWord, normalizedContext) {
     }
   );
 
-  const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
-  return parseTranslationPayload(raw);
+  return {
+    parsed: parseTranslationPayload(
+      response.data.choices?.[0]?.message?.content?.trim() || ""
+    ),
+    usage: response.data.usage,
+    model
+  };
 }
 
 async function requestStrictBaseOnly(normalizedWord) {
@@ -139,10 +146,11 @@ async function requestStrictBaseOnly(normalizedWord) {
     `English word: ${normalizedWord}\n\n` +
     'Return JSON only: {"translation_base_uz":"..."}';
 
+  const model = "gpt-4.1-mini";
   const response = await axios.post(
     "https://api.openai.com/v1/chat/completions",
     {
-      model: "gpt-4.1-mini",
+      model,
       temperature: 0,
       messages: [
         { role: "system", content: systemPrompt },
@@ -160,7 +168,11 @@ async function requestStrictBaseOnly(normalizedWord) {
 
   const raw = response.data.choices?.[0]?.message?.content?.trim() || "";
   const parsed = parseTranslationPayload(raw);
-  return cleanText(parsed.base || parsed.context);
+  return {
+    text: cleanText(parsed.base || parsed.context),
+    usage: response.data.usage,
+    model
+  };
 }
 
 function buildPayload({
@@ -255,17 +267,33 @@ translateRouter.post("/", async (req, res) => {
   }
 
   try {
-    const parsed = await requestTranslationPair(
+    const pairRes = await requestTranslationPair(
       normalizedWord,
       normalizedContext
     );
+    const parsed = pairRes.parsed;
+    await recordOpenAiUsage({
+      userId,
+      action: "translate",
+      model: pairRes.model,
+      usage: pairRes.usage
+    });
+
     const contextTranslation = parsed.context || parsed.base;
     let baseTranslation = parsed.base || contextTranslation;
 
     if (isLikelyContextualUzbek(baseTranslation)) {
-      const strictBase = await requestStrictBaseOnly(normalizedWord);
-      if (strictBase) {
-        baseTranslation = strictBase;
+      const strictRes = await requestStrictBaseOnly(normalizedWord);
+      if (strictRes.text) {
+        baseTranslation = strictRes.text;
+      }
+      if (strictRes.usage) {
+        await recordOpenAiUsage({
+          userId,
+          action: "translate_strict",
+          model: strictRes.model,
+          usage: strictRes.usage
+        });
       }
     }
 

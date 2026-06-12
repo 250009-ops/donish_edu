@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { getEffectiveLimits } from "../services/limitsService.js";
 import {
   countUserMaterials,
   getTotalTranslateUsage,
@@ -14,6 +15,14 @@ export async function requireMaterialUploadSlot(req, res, next) {
   }
 
   try {
+    const limits = await getEffectiveLimits(req.user.id);
+    if (limits.isBlocked) {
+      return res.status(403).json({
+        code: "account_blocked",
+        error: "Your account is temporarily restricted. Contact support."
+      });
+    }
+
     const user = await getUserBillingRow(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
@@ -23,11 +32,11 @@ export async function requireMaterialUploadSlot(req, res, next) {
     }
 
     const count = await countUserMaterials(req.user.id);
-    if (count >= config.freeMaxMaterials) {
+    if (count >= limits.freeMaxMaterials) {
       return res.status(403).json({
         code: "upgrade_required",
-        error: `Free plan includes ${config.freeMaxMaterials} PDF upload. Upgrade to Premium for unlimited uploads.`,
-        limit: config.freeMaxMaterials,
+        error: `Free plan includes ${limits.freeMaxMaterials} PDF upload. Upgrade to Premium for unlimited uploads.`,
+        limit: limits.freeMaxMaterials,
         usage: count
       });
     }
@@ -50,13 +59,21 @@ export async function checkTranslateQuota(req, res, next) {
   }
 
   try {
+    const limits = await getEffectiveLimits(req.user.id);
+    if (limits.isBlocked) {
+      return res.status(403).json({
+        code: "account_blocked",
+        error: "Your account is temporarily restricted. Contact support."
+      });
+    }
+
     const user = await getUserBillingRow(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
     if (isPremiumUser(user)) {
-      const dailyLimit = config.premiumMaxTranslatePerDay;
+      const dailyLimit = limits.premiumMaxTranslatePerDay;
       const usedToday = await getTranslateUsage(req.user.id, localDate);
       if (usedToday >= dailyLimit) {
         return res.status(403).json({
@@ -75,7 +92,7 @@ export async function checkTranslateQuota(req, res, next) {
       return next();
     }
 
-    const totalLimit = config.freeMaxTranslateTotal;
+    const totalLimit = limits.freeMaxTranslateTotal;
     const usedTotal = await getTotalTranslateUsage(req.user.id);
     if (usedTotal >= totalLimit) {
       return res.status(403).json({

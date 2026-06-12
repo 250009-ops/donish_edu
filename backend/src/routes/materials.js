@@ -11,6 +11,10 @@ import {
   extractPreviewLimiter
 } from "../middlewares/rateLimits.js";
 import {
+  extractTextFromImages,
+  ImageExtractFailedError
+} from "../services/imageExtract.js";
+import {
   extractTextFromPdf,
   PdfExtractFailedError,
   PdfExtractTimeoutError
@@ -19,7 +23,8 @@ import {
 export const materialsRouter = express.Router();
 
 const MAX_PDF_PAGES = 30;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 30 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_CONTENT_TEXT_CHARS = 800_000;
 
 const ALLOWED_TYPES = new Set([
@@ -175,10 +180,80 @@ function validateMaterialMeta(title, materialType, englishLevel, res) {
   return true;
 }
 
+function decodeBase64Images(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { ok: false, error: "images_base64 must be a non-empty array." };
+  }
+  if (raw.length > MAX_PDF_PAGES) {
+    return {
+      ok: false,
+      error: `Too many images (max ${MAX_PDF_PAGES}).`
+    };
+  }
+
+  const buffers = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const item = raw[i];
+    if (typeof item !== "string" || !item.trim()) {
+      return { ok: false, error: `images_base64[${i}] must be a base64 string.` };
+    }
+    try {
+      const buf = Buffer.from(item, "base64");
+      if (!buf.length) {
+        return { ok: false, error: `images_base64[${i}] decoded to empty data.` };
+      }
+      if (buf.length > MAX_IMAGE_BYTES) {
+        return {
+          ok: false,
+          error: `Image ${i + 1} is too large (max ${MAX_IMAGE_BYTES / (1024 * 1024)} MB).`
+        };
+      }
+      buffers.push(buf);
+    } catch {
+      return { ok: false, error: `Invalid base64 in images_base64[${i}].` };
+    }
+  }
+
+  return { ok: true, buffers };
+}
+
 materialsRouter.post("/extract-preview", extractPreviewLimiter, async (req, res) => {
+  const imagesRaw = req.body?.images_base64;
+  if (Array.isArray(imagesRaw) && imagesRaw.length > 0) {
+    const decoded = decodeBase64Images(imagesRaw);
+    if (!decoded.ok) {
+      return res.status(400).json({ error: decoded.error });
+    }
+
+    try {
+      const { contentText, numPages } = await extractTextFromImages(
+        decoded.buffers,
+        { maxPages: MAX_PDF_PAGES, maxBytesPerImage: MAX_IMAGE_BYTES }
+      );
+      return res.json({
+        extracted_text: contentText,
+        page_count: numPages
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("Image extract error:", e);
+      if (e instanceof ImageExtractFailedError) {
+        return res.status(400).json({
+          code: "image_no_extractable_text",
+          error: e.message
+        });
+      }
+      return res.status(500).json({
+        error: "Failed to extract text from images. Try again."
+      });
+    }
+  }
+
   const b64 = req.body?.pdf_base64;
   if (typeof b64 !== "string" || !b64.trim()) {
-    return res.status(400).json({ error: "pdf_base64 is required." });
+    return res.status(400).json({
+      error: "Provide pdf_base64 or images_base64."
+    });
   }
 
   let buffer;
