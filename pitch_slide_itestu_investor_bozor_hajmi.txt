@@ -1,0 +1,65 @@
+================================================================================
+iTestU — INVESTOR PITCH: BOZOR HAJMI (bitta slayd + ilova)
+Valyuta: 1 USD = 11 785,30 so‘m (MB, 7.09.2026)
+To‘liq tahlil: docs/itestu-investor-bozor-hajmi.md
+================================================================================
+
+--------------------------------------------------------------------------------
+YAGONA SLAYD — nusxa (16:9)
+--------------------------------------------------------------------------------
+
+iTestU
+Istalgan testda. Istalgan joyda. Ko‘z biometrikasi. Aynan shu muhit.
+
+HOZIR          IELTS kompyuter mock — 4 skill, real examiner, itestu.uz
+KEYIN          Har qanday test tizimi · iris/eye auth · VR exact environment
+
+GLOBAL (2025–26)
+  Rasmiy IELTS          3,3–4,0 mln test/yil · 0,7–1,6 mlrd USD to‘lov
+  IELTS prep/platform   ~2,8 mlrd USD  →  5,4–6,7 mlrd (2034)
+  Ingliz sertifikatlash 4,8–6,8 mlrd USD
+  Onlayn proctoring     1,4–1,5 mlrd USD  (CAGR 15–19%)
+  VR ta’lim             8–22 mlrd USD (ehtiyotkor)
+
+O‘ZBEKISTON
+  52 706 yosh 5,5+ (2024) — 2020: 10 152  ·  5,2×
+  Rasmiy imtihon        ≥12,5 mln USD  (52 706 × 2,8 mln so‘m); jami test 16–20 mln
+  IELTS ekotizimi       22–39 mln USD  (imtihon + kurs + mock)
+  iTestU SAM (mock)     1,3–3,0 mln USD/yil
+  36 oy SOM             0,5–2,0 mln USD ARR
+
+SIGNAL: IDP FY25 — Hindiston −50%, lekin ex-India +2% (Vetnam, Qozog‘iston, O‘ZBEKISTON).
+Davlat 7+ ni to‘laydi; 5,5–6,0 OTM kirishi. Ta’lim bizneslari 8 555 (+34% yil).
+
+Biz rasmiy IELTS o‘rnini bosmaymiz — nomzodni imtihon kunidagi aniq muhitga kiritamiz.
+
+--------------------------------------------------------------------------------
+OG‘ZAKI 20 SONIYA
+--------------------------------------------------------------------------------
+“Rasmiy IELTS O‘zbekistonda yiliga kamida 12,5 million dollar — 53 ming yosh 5,5 oldi,
+to‘rt yilda besh barobar. Global practice platforma 2,8 milliard. Biz shu 2,8 ning
+ichidagi mock qatlamidamiz: mahalliy 1,3–3 million dollar SAM, uch yilda 0,5–2 million
+ARR. Keyingi qadam — ko‘z biometrikasi va VR, global proctoring 1,5 milliard.”
+
+--------------------------------------------------------------------------------
+QOLG‘A BERILADIGAN JADVAL (ikkinchi slayd / appendix)
+--------------------------------------------------------------------------------
+
+Qatlam                         Global              O‘zbekiston              iTestU?
+Rasmiy IELTS to‘lovi           0,7–1,6 mlrd USD    12,5–20 mln USD         Yo‘q (demand proof)
+IELTS prep + platform          ~2,8 mlrd USD       kurs 8–16 mln           Ha (yon)
+Mock / CBT practice            (platform ichida)   1,3–3,0 mln USD         HA — hozirgi SAM
+Ingliz testlari (barchasi)     4,8–6,8 mlrd USD    IELTS dominant          Yo‘l xaritasi
+Proctoring + biometrika        1,4–1,5 mlrd USD    shakllanmoqda           18–36 oy
+Exam software                  3,2–8,4 mlrd USD    —                       “any test”
+VR ta’lim                      8–22 mlrd USD       0                       5–10 yil TAM
+
+UZ HISOB (kurs 11 785,30)
+  52 706 × 2 798 000 so‘m = 147,5 mlrd so‘m = 12,5 mln USD   ← pastki chegara
+  70 000 test × 2 798 000     = 195,9 mlrd so‘m = 16,6 mln USD   ← ishchi
+  Mock ishchi: 50 000 × 2 × 150 000 so‘m = 15,0 mlrd = 1,27 mln USD
+
+MANBA (qisqa): IELTS.org; IDP FY24/FY25; British Council 2023/24; DataIntelo;
+MarketIntelo; Gazeta.uz 14.12.2024; MB 7.09.2026; Zamin/Pressa 09.2026.
+
+================================================================================
